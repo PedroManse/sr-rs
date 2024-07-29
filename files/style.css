@@ -1,0 +1,50 @@
+body {
+	color: #FFF;
+	background-color: #111;
+	margin-top: 45px;
+}
+
+input[type=number].not-incremental {
+	-moz-appearance: textfield;
+}
+.invisible { display: none; }
+.center { text-align:center; }
+.left { float: left; }
+.right { float: right; }
+
+.half {
+	.left {
+		float: left;
+		width: 49.5%;
+		border-right-style: double;
+	}
+	.right {
+		float: right;
+		width: 49.5%;
+	}
+}
+
+nav {
+	font-size: 20px;
+	background-color: black;
+	height: 2em;
+	width: 60%;
+	display: flex;
+	position: fixed;
+	top: 0;
+	left: 0;
+	text-align:center;
+	padding-left: 20%;
+	padding-right: 20%;
+	a {
+		color: white;
+		margin: auto;
+		padding: 5px 20px 5px 20px;
+	}
+	a:hover {
+		background-color: grey;
+	}
+	a.current-page {
+		color: red;
+	}
+}
