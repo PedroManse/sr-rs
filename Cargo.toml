@@ -1,0 +1,11 @@
+[package]
+name = "sr-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7.5"
+maud = { version = "0.26.0", features = ["axum"] }
+serde = { version = "1.0.204", features = ["derive"] }
+sqlx = { version = "0.8.0", features = ["postgres"] }
+thiserror = "1.0.63"
