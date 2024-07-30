@@ -11,6 +11,7 @@ async fn main() -> Result<(), Error> {
     let app = Router::new()
         .route("/", get(index))
         .nest("/accounts", accounts::service())
+        .nest("/ecb", ecb::service())
         .layer(CookieManagerLayer::new())
         .nest_service("/files", ServeDir::new("files"))
         .with_state(pool);

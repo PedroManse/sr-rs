@@ -1,0 +1,7 @@
+.ecb-half {
+	display: flex;
+	fieldset {
+		width: 50%;
+	}
+}
+
