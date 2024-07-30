@@ -1,6 +1,8 @@
 pub mod accounts;
 pub mod ecb;
+pub mod jwt;
 
+use tower_cookies::Cookies;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &'static str =
     dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
@@ -9,7 +11,7 @@ pub fn hash(password: &str) -> [u8; 32] {
     argon2rs::argon2d_simple(password, ARGON_SALT)
 }
 
-use sqlx::postgres::PgPool;
+pub use sqlx::postgres::PgPool;
 pub async fn acquire_pool() -> Result<PgPool, Error> {
     dotenvy::dotenv()?;
     let url = std::env::var("DATABASE_URL").unwrap();
@@ -44,17 +46,35 @@ impl Render for JS {
     }
 }
 
-pub fn nav(url: &str) -> Markup {
-    let nav_link = |turl: &str, name: &str| {
-        maud::html! {
-            a."current-page"[url==turl] href={(turl)} {(name)}
+fn simple_nav_item(
+    user_url: &str,
+    check_url: &str,
+    content: &str,
+) -> Markup {
+    let here = user_url == check_url;
+    maud::html! {
+        span {
+            a
+                ."current-page"[here]
+                href=(check_url)
+                {(content)}
         }
-    };
+    }
+}
+
+pub async fn nav(
+    url: &str,
+    cookies: &Cookies,
+    pool: &PgPool,
+) -> Markup {
     maud::html! {
         nav class="center" {
-            (nav_link("/", "home"));
-            (nav_link("/accounts/login", "login"));
-            (nav_link("/accounts/register", "register"));
+            span {
+            (simple_nav_item(
+                url, "/", "home",
+            ));
+            }
+            (accounts::get_nav(url, cookies, pool).await);
         }
     }
 }

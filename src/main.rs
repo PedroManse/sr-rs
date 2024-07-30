@@ -1,7 +1,7 @@
-use axum::{routing::get, Router};
+use axum::{extract, routing::get, Router};
 use maud::Markup;
 use sr_rs::*;
-use tower_cookies::CookieManagerLayer;
+use tower_cookies::{Cookies, CookieManagerLayer};
 use tower_http::services::ServeDir;
 
 #[tokio::main(flavor = "current_thread")]
@@ -22,16 +22,20 @@ async fn main() -> Result<(), Error> {
     unreachable!()
 }
 
-async fn index() -> Markup {
-    maud::html! {
+async fn index(
+    extract::State(pool): extract::State<PgPool>,
+    cookies: Cookies,
+) -> Result<Markup, Markup> {
+    Ok(maud::html! {
         head {
             (CSS("/files/style.css"));
         }
         body {
-            (nav("/"));
+            (nav("/", &cookies, &pool).await);
             div id="content" {
                 h1{ "Hello!" };
             }
         }
-    }
+    })
 }
+

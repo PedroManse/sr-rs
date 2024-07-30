@@ -28,21 +28,22 @@ nav {
 	font-size: 20px;
 	background-color: black;
 	height: 2em;
-	width: 60%;
-	display: flex;
+	width: 100%;
 	position: fixed;
 	top: 0;
 	left: 0;
 	text-align:center;
-	padding-left: 20%;
-	padding-right: 20%;
 	a {
 		color: white;
-		margin: auto;
-		padding: 5px 20px 5px 20px;
 	}
-	a:hover {
-		background-color: grey;
+	span {
+		a {
+			margin: auto;
+			padding: 5px 20px 5px 20px;
+		}
+		a:hover {
+			background-color: grey;
+		}
 	}
 	a.current-page {
 		color: red;

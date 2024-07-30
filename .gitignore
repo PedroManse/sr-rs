@@ -1,4 +1,4 @@
 target
 .env
 .priv.pem
-.pub.crt
+.pub.pem
