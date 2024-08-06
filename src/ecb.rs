@@ -22,8 +22,10 @@ pub enum Error {
 pub fn service() -> Router<PgPool> {
     Router::new()
         .route("/", get(index))
-        .route("/send", post(send))
-        .route("/get", get(query))
+        .route("/random", post(send_random))
+        .route("/random", get(query_random))
+        .route("/named", post(send_named))
+        .route("/named", get(query_named))
 }
 
 impl IntoResponse for Error {
@@ -44,14 +46,14 @@ pub struct ECBGet {
     code: i32,
 }
 
-async fn query(
+async fn query_random(
     State(pool): State<PgPool>,
     Query(params): Query<ECBGet>,
 ) -> Result<Markup, Error> {
     let code = params.code;
     let content = sqlx::query!("
 SELECT (content)
-FROM ecb.clip
+FROM ecb.random
 WHERE id=$1
 ", code).fetch_one(&pool).await.or(Err(NotFoundError(code)))?.content;
     Ok(maud::html!{
@@ -62,13 +64,13 @@ WHERE id=$1
     })
 }
 
-async fn send(
+async fn send_random(
     State(pool): State<PgPool>,
     Form(info): Form<ECBSend>,
 ) -> Result<Markup, Error> {
     let code = (fxhash::hash64(&info.content)%10000) as i32;
     sqlx::query!("
-INSERT INTO ecb.clip (id, content)
+INSERT INTO ecb.random (id, content)
 VALUES ($1, $2)
 ON CONFLICT (id)
 DO UPDATE SET content=$2;
@@ -80,6 +82,29 @@ DO UPDATE SET content=$2;
             p {(info.content)};
         }
     })
+}
+
+#[derive(serde::Deserialize, Debug)]
+pub struct ECBSendNamed {
+    content: String,
+}
+#[derive(serde::Deserialize, Debug)]
+pub struct ECBGetNamed {
+    name: String,
+}
+
+async fn send_named(
+    State(pool): State<PgPool>,
+    Query(params): Query<ECBGet>,
+) -> Result<Markup, Error> {
+    Ok(html!{})
+}
+
+async fn query_named(
+    State(pool): State<PgPool>,
+    Query(params): Query<ECBGet>,
+) -> Result<Markup, Error> {
+    Ok(html!{})
 }
 
 async fn index(
