@@ -18,3 +18,4 @@ tower-http = { version = "0.5.2", features = ["fs"] }
 uuid = "1.7.0"
 jsonwebtoken = "9.3.0"
 fxhash = "0.2.1"
+openssl = "0.10.66"

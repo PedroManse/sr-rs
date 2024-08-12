@@ -1,14 +1,20 @@
 pub mod accounts;
 pub mod ecb;
 pub mod jwt;
+pub mod crypt;
 
 use tower_cookies::Cookies;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &'static str =
     dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
 
-pub fn hash(password: &str) -> [u8; 32] {
-    argon2rs::argon2d_simple(password, ARGON_SALT)
+pub fn hash<P>(password: P) -> [u8; 32]
+where P:AsRef<[u8]>
+{
+    let mut out = [0; 32];
+    let a2 = argon2rs::Argon2::default(argon2rs::Variant::Argon2d);
+    a2.hash(&mut out, password.as_ref(), ARGON_SALT.as_bytes(), &[], &[]);
+    out
 }
 
 pub use sqlx::postgres::PgPool;
