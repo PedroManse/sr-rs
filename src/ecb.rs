@@ -13,12 +13,16 @@ use maud::*;
 pub enum Error {
     #[error("No such Clip #{0}")]
     NotFoundError(i32),
-    #[error("No such Named Clip #{0}")]
-    NamedNotFoundError(String),
+    #[error("No such Clip Named \"{0}\"")]
+    NameNotFoundError(String),
     #[error("You can't access Clip #{0}")]
     UnauthClip(i32),
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
+    #[error(transparent)]
+    CryptError(#[from] crypt::Error),
+    #[error("Can't decrypt Clip, possibly wrong password")]
+    FailedDecryption,
 }
 
 pub fn service() -> Router<PgPool> {
@@ -28,10 +32,19 @@ pub fn service() -> Router<PgPool> {
         .route("/random", get(query_random))
         .route("/named", post(send_named))
         .route("/named", get(query_named))
+        .route("/private", post(send_private))
+        .route("/private", get(query_private))
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
+        if let CryptError(_) = self {
+            return html! {
+                h1 { "EasyClipBoard error" };
+                h2 { "Can't decrypt Clip" };
+            }
+            .into_response();
+        }
         html! {
             h1 { "EasyClipBoard error" };
             h2 { (self) };
@@ -41,11 +54,11 @@ impl IntoResponse for Error {
 }
 
 #[derive(serde::Deserialize, Debug)]
-pub struct ECBSend {
+struct ECBSend {
     content: String,
 }
 #[derive(serde::Deserialize, Debug)]
-pub struct ECBGet {
+struct ECBGet {
     code: i32,
 }
 
@@ -100,12 +113,12 @@ DO UPDATE SET content=$2;
 }
 
 #[derive(serde::Deserialize, Debug)]
-pub struct ECBSendNamed {
+struct ECBSendNamed {
     content: String,
     name: String,
 }
 #[derive(serde::Deserialize, Debug)]
-pub struct ECBGetNamed {
+struct ECBGetNamed {
     name: String,
 }
 
@@ -141,12 +154,67 @@ WHERE name=$1;
 ", &name)
     .fetch_one(&pool)
     .await
-    .or(Err(NamedNotFoundError(name.clone())))?
+    .or(Err(NameNotFoundError(name.clone())))?
     .content;
     Ok(maud::html! {
         fieldset #"swap" {
             legend {"CLIP: \""(&name) "\""}
             p{ (content) };
+        }
+    })
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct ECBSendPrivate{
+    content: String,
+    name: String,
+    password: String,
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct ECBGetPrivate {
+    name: String,
+    password: String,
+}
+
+async fn send_private(
+    State(pool): State<PgPool>,
+    Form(params): Form<ECBSendPrivate>,
+) -> Result<Markup, Error> {
+    let name = params.name;
+    let content = crypt::encrypt(&params.content, &params.password)?;
+    sqlx::query!("
+INSERT INTO ecb.private (name, content)
+VALUES ($1, $2)
+ON CONFLICT (name)
+DO UPDATE SET content=$2;
+", name, content).execute(&pool).await?;
+    Ok(maud::html! {
+        fieldset #"swap" {
+            legend {"CLIP: #"(name)}
+            p {(params.content)};
+        }
+    })
+}
+
+async fn query_private(
+    State(pool): State<PgPool>,
+    Query(params): Query<ECBGetPrivate>,
+) -> Result<Markup, Error> {
+    let enc_cont = sqlx::query!("
+SELECT (content)
+FROM ecb.private
+WHERE name=$1;
+", &params.name).fetch_one(&pool)
+        .await
+        .or(Err(NameNotFoundError(params.name.clone())))?
+        .content;
+    let content = crypt::decrypt(enc_cont, params.password)?;
+    let content = std::str::from_utf8(&content).or(Err(FailedDecryption))?;
+    Ok(maud::html! {
+        fieldset #"swap" {
+            legend {"CLIP: #"(params.name)}
+            p {(content)};
         }
     })
 }
@@ -166,6 +234,7 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
             select {
                 option value="random" {"Random"}
                 option value="named" {"Named"}
+                option value="private" {"Private"}
             }
             fieldset
                 class="stat send"
@@ -181,6 +250,23 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     button {"create"}
                 }
 
+            }
+            fieldset
+                class="stat invisible send"
+                id="write-private"
+            {
+                legend {"Write - Private"}
+                form
+                    hx-post="/ecb/private"
+                    hx-target="#swap"
+                    hx-swap="innerHTML"
+                {
+                    input placeholder="Clip name" name="name" type="text" {}
+                    input placeholder="Clip password" name="password" type="text" {}
+                    br {}
+                    textarea name="content" {}
+                    button {"create"}
+                }
             }
             fieldset
                 class="stat invisible send"
@@ -224,6 +310,21 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     hx-swap="innerHTML"
                 {
                     input placeholder="name" name="name" type="string" {}
+                    button {"search"}
+                }
+            }
+            fieldset
+                class="stat get invisible"
+                id="read-private"
+            {
+                legend {"Read - Private"}
+                form
+                    hx-get="/ecb/private"
+                    hx-target="#swap"
+                    hx-swap="innerHTML"
+                {
+                    input placeholder="Clip name" name="name" type="string" {}
+                    input placeholder="Clip password" name="password" type="string" {}
                     button {"search"}
                 }
             }
