@@ -80,6 +80,7 @@ pub async fn nav(
                 url, "/", "home",
             ));
             }
+            (ecb::get_nav(url));
             (accounts::get_nav(url, cookies, pool).await);
         }
     }

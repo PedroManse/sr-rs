@@ -36,6 +36,17 @@ pub fn service() -> Router<PgPool> {
         .route("/private", get(query_private))
 }
 
+pub fn get_nav(
+    url: &str,
+) -> Markup {
+    let selected = url.starts_with("/ecb");
+    html!{
+        span {
+            a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
+        }
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         if let CryptError(_) = self {
@@ -231,11 +242,31 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
         (nav("/ecb", &cookies, &pool).await);
         div id="content" {
         div.ecb-half {
-            select {
-                option value="random" {"Random"}
-                option value="named" {"Named"}
-                option value="private" {"Private"}
+
+            fieldset {
+                legend {"Select Clip type"}
+                label for="select-random" {
+                    input
+                        value="random" name="select-clip"
+                        type="radio" id="select-random"
+                        checked {}
+                    "Random"
+                }
+                label for="select-named" {
+                    input
+                        value="named" name="select-clip"
+                        type="radio" id="select-named" {}
+                    "Named"
+                }
+                label for="select-private" {
+                    input
+                        value="private" name="select-clip"
+                        type="radio" id="select-private" {}
+                    "Private"
+                }
             }
+
+            // writers
             fieldset
                 class="stat send"
                 id="write-random"
@@ -249,7 +280,6 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     textarea name="content" {}
                     button {"create"}
                 }
-
             }
             fieldset
                 class="stat invisible send"
@@ -262,7 +292,7 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     hx-swap="innerHTML"
                 {
                     input placeholder="Clip name" name="name" type="text" {}
-                    input placeholder="Clip password" name="password" type="text" {}
+                    input placeholder="Clip password" name="password" type="password" {}
                     br {}
                     textarea name="content" {}
                     button {"create"}
@@ -283,8 +313,9 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     textarea name="content" {}
                     button {"create"}
                 }
-
             }
+
+            // readers
             fieldset
                 class="stat get"
                 id="read-random"
@@ -309,7 +340,7 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     hx-target="#swap"
                     hx-swap="innerHTML"
                 {
-                    input placeholder="name" name="name" type="string" {}
+                    input placeholder="name" name="name" type="text" {}
                     button {"search"}
                 }
             }
@@ -323,8 +354,8 @@ async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
                     hx-target="#swap"
                     hx-swap="innerHTML"
                 {
-                    input placeholder="Clip name" name="name" type="string" {}
-                    input placeholder="Clip password" name="password" type="string" {}
+                    input placeholder="Clip name" name="name" type="text" {}
+                    input placeholder="Clip password" name="password" type="password" {}
                     button {"search"}
                 }
             }

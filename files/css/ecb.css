@@ -3,5 +3,8 @@
 	fieldset.stat {
 		flex: auto;
 	}
+	label {
+		display: block;
+	}
 }
 
