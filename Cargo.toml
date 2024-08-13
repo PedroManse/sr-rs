@@ -7,7 +7,7 @@ edition = "2021"
 axum = "0.7.5"
 maud = { version = "0.26.0", features = ["axum"] }
 serde = { version = "1.0.204", features = ["derive"] }
-sqlx = { version = "0.8.0", features = ["postgres", "runtime-tokio", "uuid"] }
+sqlx = { version = "0.8.0", features = ["chrono", "postgres", "runtime-tokio", "uuid"] }
 thiserror = "1.0.63"
 argon2rs = "0.2.5"
 dotenv_codegen = "0.15.0"
@@ -19,3 +19,4 @@ uuid = "1.7.0"
 jsonwebtoken = "9.3.0"
 fxhash = "0.2.1"
 openssl = "0.10.66"
+chrono = { version = "0.4.38", features = ["serde"] }
