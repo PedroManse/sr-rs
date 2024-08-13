@@ -35,3 +35,9 @@ CREATE TABLE notebook.group_calendar_entries (
 );
 CREATE INDEX notebook_group_calendar_entries ON notebook.group_calendar_entries(group_id);
 
+CREATE TABLE notebook.group_notes (
+	group_id UUID NOT NULL REFERENCES notebook.groups(id),
+	content TEXT NOT NULL
+);
+CREATE INDEX notebook_group_notes ON notebook.group_notes(group_id);
+
