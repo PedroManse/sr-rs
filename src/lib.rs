@@ -2,6 +2,8 @@ pub mod accounts;
 pub mod ecb;
 pub mod jwt;
 pub mod crypt;
+pub mod notebook;
+//TODO all errors to string + StatusCode instead of markup
 
 use tower_cookies::Cookies;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
