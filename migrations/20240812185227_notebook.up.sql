@@ -9,6 +9,7 @@ CREATE TABLE notebook.groups (
 );
 
 CREATE TABLE notebook.user_calendar_entries (
+	id SERIAL NOT NULL PRIMARY KEY,
 	owner_id UUID NOT NULL REFERENCES inter.accounts(id),
 	time DATE NOT NULL,
 	title TEXT NOT NULL,
@@ -17,6 +18,7 @@ CREATE TABLE notebook.user_calendar_entries (
 CREATE INDEX notebook_user_calendar_entries ON notebook.user_calendar_entries(owner_id);
 
 CREATE TABLE notebook.notes (
+	id SERIAL NOT NULL PRIMARY KEY,
 	owner_id UUID NOT NULL REFERENCES inter.accounts(id),
 	content TEXT NOT NULL
 );
@@ -28,6 +30,7 @@ CREATE TABLE notebook.group_users (
 );
 
 CREATE TABLE notebook.group_calendar_entries (
+	id SERIAL NOT NULL PRIMARY KEY,
 	group_id UUID NOT NULL REFERENCES notebook.groups(id),
 	time DATE NOT NULL,
 	title TEXT NOT NULL,
@@ -36,6 +39,7 @@ CREATE TABLE notebook.group_calendar_entries (
 CREATE INDEX notebook_group_calendar_entries ON notebook.group_calendar_entries(group_id);
 
 CREATE TABLE notebook.group_notes (
+	id SERIAL NOT NULL PRIMARY KEY,
 	group_id UUID NOT NULL REFERENCES notebook.groups(id),
 	content TEXT NOT NULL
 );
