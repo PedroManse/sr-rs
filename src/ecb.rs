@@ -6,7 +6,6 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use maud::html;
 use maud::*;
 
 #[derive(thiserror::Error, Debug)]
@@ -47,20 +46,28 @@ pub fn get_nav(
     }
 }
 
+impl DescribeError for Error {
+    fn describe(&self) -> (String, axum::http::StatusCode) {
+        if let CryptError(_) = self {
+            return (
+                "Can't decrypt Clip".to_owned(),
+                axum::http::StatusCode::BAD_REQUEST,
+            )
+        }
+        (
+            self.to_string(),
+            axum::http::StatusCode::BAD_REQUEST,
+        )
+    }
+}
+
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        if let CryptError(_) = self {
-            return html! {
-                h1 { "EasyClipBoard error" };
-                h2 { "Can't decrypt Clip" };
-            }
-            .into_response();
-        }
-        html! {
+        let (desc, code) = self.describe();
+        (code, html! {
             h1 { "EasyClipBoard error" };
-            h2 { (self) };
-        }
-        .into_response()
+            h2 { (desc) };
+        }).into_response()
     }
 }
 
@@ -90,7 +97,7 @@ WHERE id=$1
     .await
     .or(Err(NotFoundError(code)))?
     .content;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: #"(code)}
             p{ (content) };
@@ -115,7 +122,7 @@ DO UPDATE SET content=$2;
     )
     .execute(&pool)
     .await?;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: #"(code)}
             p {(info.content)};
@@ -145,7 +152,7 @@ VALUES ($1, $2)
 ON CONFLICT (name)
 DO UPDATE SET content=$2
 ", &name, &content).execute(&pool).await?;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: \"" (name) "\""}
             p {(content)};
@@ -167,7 +174,7 @@ WHERE name=$1;
     .await
     .or(Err(NameNotFoundError(name.clone())))?
     .content;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: \""(&name) "\""}
             p{ (content) };
@@ -200,7 +207,7 @@ VALUES ($1, $2)
 ON CONFLICT (name)
 DO UPDATE SET content=$2;
 ", name, content).execute(&pool).await?;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: #"(name)}
             p {(params.content)};
@@ -222,7 +229,7 @@ WHERE name=$1;
         .content;
     let content = crypt::decrypt(enc_cont, params.password)?;
     let content = std::str::from_utf8(&content).or(Err(FailedDecryption))?;
-    Ok(maud::html! {
+    Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: #"(params.name)}
             p {(content)};
@@ -231,8 +238,9 @@ WHERE name=$1;
 }
 
 async fn index(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
-    maud::html! {
+    html! {
     head {
+        (DOCTYPE);
         (JS("/files/js/ecb.js"));
         (HTMX);
         (CSS("/files/style.css"));

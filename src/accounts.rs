@@ -30,25 +30,27 @@ pub enum Error {
     MissingCookie,
 }
 
-impl Render for Error {
-    fn render(&self) -> Markup {
+impl DescribeError for Error {
+    fn describe(&self) -> (String, axum::http::StatusCode) {
+        use axum::http::StatusCode;
         // for special handling of errors
-        let error_desc = match self {
-            UUIDError(e)=> e.to_string(),
-            SqlError(e) => e.to_string(),
-            JWTError(e) => e.to_string(),
-            MissingCookie=>"Missing cookie".to_owned(),
-        };
-        html! {
-            h1 {"Erro:"}
-            h2 { (error_desc) }
-            a href="/" {"home"}
+        match self {
+            UUIDError(e)=> (e.to_string(), StatusCode::BAD_REQUEST),
+            SqlError(e) => (e.to_string(), StatusCode::BAD_REQUEST),
+            JWTError(e) => (e.to_string(), StatusCode::UNAUTHORIZED),
+            MissingCookie=>("Missing cookie".to_owned(), StatusCode::UNAUTHORIZED),
         }
     }
 }
+
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        self.render().into_response()
+        let (desc, code) = self.describe();
+        (code, html! {
+            h1 {"Erro:"}
+            h2 { (desc) }
+            a href="/" {"home"}
+        }).into_response()
     }
 }
 
@@ -91,7 +93,8 @@ async fn register_get(
     State(pool): State<PgPool>,
     cookies: Cookies,
 ) -> Markup {
-    maud::html! {
+    html! {
+        (DOCTYPE);
         head {
             (CSS("/files/style.css"));
         }
@@ -122,6 +125,7 @@ async fn login_get(
     cookies: Cookies,
 ) -> Markup {
     html! {
+        (DOCTYPE);
         head {
             (CSS("/files/style.css"));
         }

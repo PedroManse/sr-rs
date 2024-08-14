@@ -10,6 +10,16 @@ const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &'static str =
     dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
 
+trait DescribeError {
+    fn describe(&self) -> (String, axum::http::StatusCode);
+    fn message(&self) -> String {
+        self.describe().0
+    }
+    fn code(&self) -> axum::http::StatusCode {
+        self.describe().1
+    }
+}
+
 pub fn hash<P>(password: P) -> [u8; 32]
 where P:AsRef<[u8]>
 {
@@ -36,7 +46,7 @@ pub enum Error {
     IOError(#[from] std::io::Error),
 }
 
-use maud::{html, Markup, Render};
+use maud::{html, Markup, Render, DOCTYPE};
 pub const HTMX: JS = JS("/files/js/htmx.min.js");
 pub const HYPER: JS = JS("/files/js/hyperscript.min.js");
 
@@ -77,11 +87,12 @@ pub async fn nav(
 ) -> Markup {
     maud::html! {
         nav class="center" {
-            span {
             (simple_nav_item(
                 url, "/", "home",
             ));
-            }
+            (simple_nav_item(
+                url, "/notebook/user", "NoteBook",
+            ));
             (ecb::get_nav(url));
             (accounts::get_nav(url, cookies, pool).await);
         }
