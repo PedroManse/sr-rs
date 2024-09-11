@@ -12,7 +12,7 @@ async fn main() -> Result<(), Error> {
         .route("/", get(index))
         .nest("/accounts", accounts::service())
         .nest("/ecb", ecb::service())
-        .nest("/notebook", notebook::service())
+        .nest("/meet", meet::service())
         .layer(CookieManagerLayer::new())
         .nest_service("/files", ServeDir::new("files"))
         .with_state(pool);

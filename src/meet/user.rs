@@ -130,7 +130,7 @@ async fn get_calendar_entry(
         CalendarEntry,
         "
 SELECT id, time, title, description
-FROM notebook.user_calendar_entries
+FROM meet.user_calendar_entries
 WHERE owner_id=$1 AND id=$2
 ",
         owner_id,
@@ -151,7 +151,7 @@ async fn make_calendar_entry(
     sqlx::query_as!(
         IDResult,
         "
-INSERT INTO notebook.user_calendar_entries
+INSERT INTO meet.user_calendar_entries
 (time, title, description, owner_id)
 VALUES ($1, $2, $3, $4)
 RETURNING id",
@@ -175,7 +175,7 @@ async fn delete_calendar_entry(
     sqlx::query_as!(
         CalendarEntry,
         "
-DELETE FROM notebook.user_calendar_entries
+DELETE FROM meet.user_calendar_entries
 WHERE id=$1 AND owner_id=$2
 RETURNING id, time, title, description",
         entry_id,
@@ -197,7 +197,7 @@ async fn update_calendar_entry(
     sqlx::query_as!(
         CalendarEntry,
         "
-UPDATE notebook.user_calendar_entries as e
+UPDATE meet.user_calendar_entries as e
 SET
     time=COALESCE(e.time, $1),
     title=COALESCE(e.title, $2),
@@ -229,7 +229,7 @@ async fn get_calendar_entries(
     let entries_count = sqlx::query!(
         "
 SELECT COUNT(*)
-FROM notebook.user_calendar_entries
+FROM meet.user_calendar_entries
 WHERE owner_id=$1
 ",
         owner_id
@@ -242,7 +242,7 @@ WHERE owner_id=$1
         CalendarEntry,
         "
 SELECT id, title, description, time
-FROM notebook.user_calendar_entries
+FROM meet.user_calendar_entries
 WHERE owner_id=$1
 LIMIT $2 OFFSET $3
 ",
@@ -291,7 +291,7 @@ async fn make_note(
     sqlx::query_as!(
         Note,
         "
-INSERT INTO notebook.notes
+INSERT INTO meet.notes
 (content, owner_id) VALUES ($1, $2)
 RETURNING id, content;
 ",
@@ -314,7 +314,7 @@ async fn get_note(
         Note,
         "
 SELECT content, id
-FROM notebook.notes
+FROM meet.notes
 WHERE id=$1 AND owner_id=$2
 ",
         entry_id,
@@ -336,7 +336,7 @@ async fn update_note(
     sqlx::query_as!(
         Note,
         "
-UPDATE notebook.notes
+UPDATE meet.notes
 SET content=COALESCE($1, content)
 WHERE id=$2 AND owner_id=$3
 RETURNING content, id
@@ -360,7 +360,7 @@ async fn delete_note(
     sqlx::query_as!(
         Note,
         "
-DELETE FROM notebook.notes
+DELETE FROM meet.notes
 WHERE id=$1 AND owner_id=$2
 RETURNING content, id
 ",
@@ -385,7 +385,7 @@ async fn get_notes(
     let entries_count = sqlx::query!(
         "
 SELECT COUNT(*)
-FROM notebook.notes
+FROM meet.notes
 WHERE owner_id=$1
 ",
         owner_id
@@ -398,7 +398,7 @@ WHERE owner_id=$1
         Note,
         "
 SELECT id, content
-FROM notebook.notes
+FROM meet.notes
 WHERE owner_id=$1
 LIMIT $2 OFFSET $3
 ",
@@ -431,7 +431,7 @@ async fn index(
             (JS("/files/js/calendar.js"));
         }
         body {
-            (nav("/notebook/user", &cookies, &pool).await);
+            (nav("/meet/user", &cookies, &pool).await);
             div id="container" {
                 div id="groups" { "groups" }
                 div id="calendar" { "calendar" }

@@ -2,7 +2,7 @@ pub mod accounts;
 pub mod ecb;
 pub mod jwt;
 pub mod crypt;
-pub mod notebook;
+pub mod meet;
 //TODO all errors to string + StatusCode instead of markup
 
 use tower_cookies::Cookies;
@@ -91,7 +91,7 @@ pub async fn nav(
                 url, "/", "home",
             ));
             (simple_nav_item(
-                url, "/notebook/user", "NoteBook",
+                url, "/notebook/user", "Meet",
             ));
             (ecb::get_nav(url));
             (accounts::get_nav(url, cookies, pool).await);
