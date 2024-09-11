@@ -1,0 +1,51 @@
+div#container {
+	display: flex;
+	height: 92vh;
+	text-align: center;
+}
+div#groups {
+	height: 100%;
+	width: 20%;
+	background-color: red;
+}
+div#calendar {
+	height: 100%;
+	width: 80%;
+	background-color: green;
+}
+div#notes {
+	padding-left: 2px;
+	padding-right: 2px;
+	height: 100%;
+	width: 20%;
+	background-color: blue;
+	> div#note-creator-container > div {
+		height: 10%;
+		width: 100%;
+		> textarea {
+			width: 90%;
+			border-radius: 10px;
+		}
+	}
+	> div#note-container {
+		height: 90%;
+		overflow-y: auto;
+		scrollbar-width: none;
+		> div.note {
+			> button.edit-delete {
+				float: left;
+				border: none;
+				background: none;
+			}
+			> button.edit {
+				float: right;
+				border: none;
+				background: none;
+			}
+			border-radius: 10px;
+			min-height: 3rem;
+			margin-bottom: 5px;
+		}
+	}
+}
+

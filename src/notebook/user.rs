@@ -5,14 +5,29 @@ pub enum Error {
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
 }
+use self::Error::*;
+
+impl DescribeError for Error {
+    fn describe(&self) -> (String, axum::http::StatusCode) {
+        use axum::http::StatusCode;
+        // for special handling of errors
+        match self {
+            AccountError(e) => e.describe(),
+            SqlxError(e) => (e.to_string(), StatusCode::BAD_REQUEST),
+        }
+    }
+}
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         use self::Error::*;
         match self {
-            AccountError(_)=>"Account not found",
-            SqlxError(_)=>"Entry not found",
-        }.into_response()
+            AccountError(a) => {
+                format!("Account error: {} # {}", a.message(), a.code())
+            }
+            SqlxError(_) => format!("Entry not found"),
+        }
+        .into_response()
     }
 }
 
@@ -20,29 +35,30 @@ use crate::*;
 use axum::{
     extract::*,
     response::{IntoResponse, Json as JSON},
-    routing::{get, post, delete, patch, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use tower_cookies::Cookies;
 
 async fn tdep() -> impl IntoResponse {
-    html!{"TODO"}
+    html! {"TODO"}
 }
 
 pub fn service() -> Router<PgPool> {
     Router::new()
+        .route("/", get(index))
+        .route("/self", get(tdep))
+
         .route("/calendar/:id", get(get_calendar_entry))
         .route("/calendar/:id", patch(update_calendar_entry))
         .route("/calendar/:id", delete(delete_calendar_entry))
         .route("/calendar", post(make_calendar_entry))
         .route("/calendar", get(get_calendar_entries))
-
+        .route("/note", get(get_notes))
         .route("/note", post(make_note))
         .route("/note/:id", get(get_note))
         .route("/note/:id", put(update_note))
         .route("/note/:id", delete(delete_note))
-        .route("/note", get(get_notes))
-
         .route("/groups", get(tdep))
         .route("/group", get(tdep))
         .route("/group", post(tdep))
@@ -93,16 +109,11 @@ struct GetCalendarEntries {
 }
 
 impl<T> Paginate<T> {
-    fn contain(
-        content: Vec<T>,
-        total_count: i64,
-        page_size: i64,
-        page_index: i64,
-    ) -> Self {
+    fn contain(content: Vec<T>, total_count: i64, page_size: i64, page_index: i64) -> Self {
         Self {
             taken: content.len() as i64,
             total_count,
-            total_pages: total_count/page_size,
+            total_pages: total_count / page_size,
             page_index,
             content,
         }
@@ -115,14 +126,20 @@ async fn get_calendar_entry(
     cookies: Cookies,
 ) -> Result<JSON<CalendarEntry>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(CalendarEntry, "
+    sqlx::query_as!(
+        CalendarEntry,
+        "
 SELECT id, time, title, description
 FROM notebook.user_calendar_entries
 WHERE owner_id=$1 AND id=$2
-", owner_id, entry_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        owner_id,
+        entry_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn make_calendar_entry(
@@ -131,14 +148,22 @@ async fn make_calendar_entry(
     Json(entry): JSON<CalendarCreator>,
 ) -> Result<JSON<IDResult>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(IDResult, "
+    sqlx::query_as!(
+        IDResult,
+        "
 INSERT INTO notebook.user_calendar_entries
 (time, title, description, owner_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id", entry.time, entry.title, entry.description, owner_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+RETURNING id",
+        entry.time,
+        entry.title,
+        entry.description,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn delete_calendar_entry(
@@ -147,13 +172,19 @@ async fn delete_calendar_entry(
     cookies: Cookies,
 ) -> Result<JSON<CalendarEntry>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(CalendarEntry, "
+    sqlx::query_as!(
+        CalendarEntry,
+        "
 DELETE FROM notebook.user_calendar_entries
 WHERE id=$1 AND owner_id=$2
-RETURNING id, time, title, description", entry_id, owner_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+RETURNING id, time, title, description",
+        entry_id,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn update_calendar_entry(
@@ -163,7 +194,9 @@ async fn update_calendar_entry(
     Json(entry): JSON<CalendarUpdator>,
 ) -> Result<JSON<CalendarEntry>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(CalendarEntry, "
+    sqlx::query_as!(
+        CalendarEntry,
+        "
 UPDATE notebook.user_calendar_entries as e
 SET
     time=COALESCE(e.time, $1),
@@ -171,10 +204,17 @@ SET
     description=COALESCE(e.description, $3)
 WHERE id=$4 AND owner_id=$5
 RETURNING id, time, title, description
-", entry.time, entry.title, entry.description, entry_id, owner_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        entry.time,
+        entry.title,
+        entry.description,
+        entry_id,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn get_calendar_entries(
@@ -186,19 +226,37 @@ async fn get_calendar_entries(
     let page_index = calendar_query.page;
     let page_size = calendar_query.page_size;
     let offset = page_index * page_size;
-    let entries_count = sqlx::query!("
+    let entries_count = sqlx::query!(
+        "
 SELECT COUNT(*)
 FROM notebook.user_calendar_entries
 WHERE owner_id=$1
-", owner_id).fetch_one(&pool).await?.count.unwrap_or(0);
-    let entries = sqlx::query_as!(CalendarEntry, "
+",
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await?
+    .count
+    .unwrap_or(0);
+    let entries = sqlx::query_as!(
+        CalendarEntry,
+        "
 SELECT id, title, description, time
 FROM notebook.user_calendar_entries
 WHERE owner_id=$1
 LIMIT $2 OFFSET $3
-", owner_id, page_size, offset).fetch_all(&pool).await?;
+",
+        owner_id,
+        page_size,
+        offset
+    )
+    .fetch_all(&pool)
+    .await?;
     Ok(axum::Json(Paginate::contain(
-        entries, entries_count, page_size, page_index
+        entries,
+        entries_count,
+        page_size,
+        page_index,
     )))
 }
 
@@ -230,13 +288,20 @@ async fn make_note(
     Json(note): Json<NoteCreator>,
 ) -> Result<Json<Note>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(Note, "
+    sqlx::query_as!(
+        Note,
+        "
 INSERT INTO notebook.notes
 (content, owner_id) VALUES ($1, $2)
 RETURNING id, content;
-", note.content, owner_id).fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        note.content,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn get_note(
@@ -245,13 +310,20 @@ async fn get_note(
     cookies: Cookies,
 ) -> Result<Json<Note>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(Note, "
+    sqlx::query_as!(
+        Note,
+        "
 SELECT content, id
 FROM notebook.notes
 WHERE id=$1 AND owner_id=$2
-", entry_id, owner_id).fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        entry_id,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn update_note(
@@ -261,15 +333,22 @@ async fn update_note(
     Json(entry): JSON<NoteUpdator>,
 ) -> Result<JSON<Note>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(Note, "
+    sqlx::query_as!(
+        Note,
+        "
 UPDATE notebook.notes
-SET content=COALESCE(content, $1)
+SET content=COALESCE($1, content)
 WHERE id=$2 AND owner_id=$3
 RETURNING content, id
-", entry.content, entry_id, owner_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        entry.content,
+        entry_id,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
 
 async fn delete_note(
@@ -278,16 +357,21 @@ async fn delete_note(
     cookies: Cookies,
 ) -> Result<JSON<Note>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
-    sqlx::query_as!(Note, "
+    sqlx::query_as!(
+        Note,
+        "
 DELETE FROM notebook.notes
 WHERE id=$1 AND owner_id=$2
 RETURNING content, id
-", entry_id, owner_id)
-        .fetch_one(&pool).await
-        .map(axum::Json)
-        .map_err(Error::from)
+",
+        entry_id,
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await
+    .map(axum::Json)
+    .map_err(Error::from)
 }
-
 
 async fn get_notes(
     State(pool): State<PgPool>,
@@ -298,18 +382,65 @@ async fn get_notes(
     let page_index = notes_query.page;
     let page_size = notes_query.page_size;
     let offset = page_index * page_size;
-    let entries_count = sqlx::query!("
+    let entries_count = sqlx::query!(
+        "
 SELECT COUNT(*)
 FROM notebook.notes
 WHERE owner_id=$1
-", owner_id).fetch_one(&pool).await?.count.unwrap_or(0);
-    let entries = sqlx::query_as!(Note, "
+",
+        owner_id
+    )
+    .fetch_one(&pool)
+    .await?
+    .count
+    .unwrap_or(0);
+    let entries = sqlx::query_as!(
+        Note,
+        "
 SELECT id, content
 FROM notebook.notes
 WHERE owner_id=$1
 LIMIT $2 OFFSET $3
-", owner_id, page_size, offset).fetch_all(&pool).await?;
+",
+        owner_id,
+        page_size,
+        offset
+    )
+    .fetch_all(&pool)
+    .await?;
     Ok(axum::Json(Paginate::contain(
-        entries, entries_count, page_size, page_index
+        entries,
+        entries_count,
+        page_size,
+        page_index,
     )))
 }
+
+async fn index(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+) -> Result<Markup, axum::response::Redirect> {
+    //let owner = crate::accounts::get_acc(&cookies, &pool)
+    //    .await
+    //    .or(Err(axum::response::Redirect::to("/login")))?;
+    Ok(html!{
+        (DOCTYPE)
+        head {
+            (CSS("/files/style.css"));
+            (CSS("/files/css/calendar.css"));
+            (JS("/files/js/calendar.js"));
+        }
+        body {
+            (nav("/notebook/user", &cookies, &pool).await);
+            div id="container" {
+                div id="groups" { "groups" }
+                div id="calendar" { "calendar" }
+                div id="notes" {
+                    div id="note-creator-container" {}
+                    div id="note-container" {}
+                }
+            }
+        }
+    })
+}
+
