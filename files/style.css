@@ -27,7 +27,7 @@ input[type=number].not-incremental {
 nav {
 	font-size: 20px;
 	background-color: black;
-	height: 2em;
+	height: 3rem;
 	width: 100%;
 	position: fixed;
 	top: 0;
