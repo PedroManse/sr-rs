@@ -4,30 +4,32 @@ pub enum Error {
     AccountError(#[from] crate::accounts::Error),
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
+    #[error("Authorization Error: {0}")]
+    AuthError(String),
+    #[error("Business logic Error: {0}")]
+    LogicError(String),
 }
 use self::Error::*;
+use axum::http::StatusCode;
 
+//TODO SqlxError actually handle different db errors
 impl DescribeError for Error {
-    fn describe(&self) -> (String, axum::http::StatusCode) {
-        use axum::http::StatusCode;
+    fn describe(&self) -> (StatusCode, String) {
         // for special handling of errors
-        match self {
-            AccountError(e) => e.describe(),
-            SqlxError(e) => (e.to_string(), StatusCode::BAD_REQUEST),
-        }
+        let code = match self {
+            AccountError(e) => return e.describe(),
+            SqlxError(_) => StatusCode::BAD_REQUEST,
+            AuthError(_) => StatusCode::FORBIDDEN,
+            LogicError(_) => StatusCode::FORBIDDEN,
+        };
+        ( code, format!("{self:?}") )
     }
 }
 
+//TODO SqlxError actually handle different db errors
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        use self::Error::*;
-        match self {
-            AccountError(a) => {
-                format!("Account error: {} # {}", a.message(), a.code())
-            }
-            SqlxError(_) => format!("Entry not found"),
-        }
-        .into_response()
+        format!("{:?}", self).into_response()
     }
 }
 
@@ -54,16 +56,39 @@ pub fn service() -> Router<PgPool> {
         .route("/calendar/:id", delete(delete_calendar_entry))
         .route("/calendar", post(make_calendar_entry))
         .route("/calendar", get(get_calendar_entries))
+
         .route("/note", get(get_notes))
         .route("/note", post(make_note))
         .route("/note/:id", get(get_note))
         .route("/note/:id", put(update_note))
         .route("/note/:id", delete(delete_note))
-        .route("/groups", get(tdep))
-        .route("/group", get(tdep))
-        .route("/group", post(tdep))
-        .route("/group", delete(tdep))
-        .route("/group", patch(tdep))
+
+        .route("/groups", get(list_groups))
+        .route("/group", post(create_group))
+        .route("/group/:id", get(get_group))
+        .route("/group/:id", delete(delete_group))
+        .route("/group/:id", patch(update_group))
+        .route("/group/:id/users", get(list_group_users))
+        .route("/group/:id/user/:uid", delete(remove_user))
+        .route("/group/:id/user/:uid", post(invite_to_group))
+        .route("/group/invites", get(list_invites))
+        .route("/group/invite/:id", post(answer_invite))
+}
+
+
+#[derive(serde::Serialize)]
+struct GroupInvite {
+    group_id: Uuid,
+    group_name: String,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(tag = "action")]
+enum InviteAction {
+    #[serde(rename = "accept")]
+    Accept,
+    #[serde(rename = "refuse")]
+    Refuse,
 }
 
 #[derive(serde::Serialize, Debug)]
@@ -221,7 +246,7 @@ async fn get_calendar_entries(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Query(calendar_query): Query<GetCalendarEntries>,
-) -> Result<Json<Paginate<CalendarEntry>>, Error> {
+) -> Result<JSON<Paginate<CalendarEntry>>, Error> {
     let owner_id = crate::accounts::get_acc(&cookies, &pool).await?.id;
     let page_index = calendar_query.page;
     let page_size = calendar_query.page_size;
@@ -416,13 +441,274 @@ LIMIT $2 OFFSET $3
     )))
 }
 
+#[derive(serde::Deserialize)]
+struct GroupCreator {
+    name: String,
+    description: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct GroupUpdator {
+    owner_id: Option<Uuid>,
+    name: Option<String>,
+    description: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct Group {
+    id: Uuid,
+    name: String,
+    description: Option<String>,
+}
+
+async fn list_groups(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+) -> Result<JSON<Vec<Group>>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let ids: Vec<Uuid> = sqlx::query!(r#"
+SELECT group_id FROM meet.group_users
+WHERE user_id=$1"#, acc.id)
+        .fetch_all(&pool)
+        .await?
+        .into_iter()
+        .map(|s|s.group_id)
+        .collect();
+    sqlx::query_as!(Group, r#"
+SELECT g.id, name, description
+FROM meet.groups as g
+INNER JOIN meet.group_users as u ON g.id=u.group_id
+WHERE id IN (SELECT unnest($1::uuid[])) AND u.user_id=$2
+"#, &ids, acc.id)
+        .fetch_all(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+async fn get_group(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Path(group_query): Path<Uuid>,
+) -> Result<JSON<Group>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    sqlx::query_as!(Group, r#"
+SELECT id, name, description
+FROM meet.groups as g
+INNER JOIN meet.group_users as u ON g.id=u.group_id
+WHERE g.id=$1 AND u.user_id=$2
+"#, group_query, acc.id)
+        .fetch_one(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+async fn update_group(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Path(group_id): Path<Uuid>,
+    Json(entry): JSON<GroupUpdator>,
+) -> Result<JSON<Group>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    sqlx::query_as!(Group, r#"
+UPDATE meet.groups as g SET
+  owner_id=COALESCE(g.owner_id, $1),
+  name=COALESCE(g.name, $2),
+  description=COALESCE(g.description, $3)
+WHERE g.id=$4 AND g.owner_id=$5
+RETURNING
+  id, name, description
+"#, entry.owner_id, entry.name,
+entry.description, group_id, acc.id)
+        .fetch_one(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+async fn create_group(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Json(entry): JSON<GroupCreator>,
+) -> Result<JSON<Group>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let group = sqlx::query_as!(Group, r#"
+INSERT INTO meet.groups
+  (owner_id, name, description)
+VALUES
+  ($1, $2, $3)
+RETURNING
+  id, name, description
+"#, acc.id, entry.name, entry.description)
+        .fetch_one(&pool)
+        .await?;
+    sqlx::query!(r#"
+INSERT INTO meet.group_users
+  (user_id, group_id)
+VALUES
+  ($1, $2)
+"#, acc.id, group.id).execute(&pool).await?;
+    Ok(axum::Json(group))
+}
+
+async fn delete_group(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Path(group_query): Path<Uuid>,
+) -> Result<JSON<Group>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    sqlx::query_as!(Group, r#"
+DELETE FROM meet.groups as g
+WHERE g.id=$1 AND g.owner_id=$2
+RETURNING id, name, description
+"#, group_query, acc.id)
+        .fetch_one(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+use accounts::Account;
+async fn list_group_users(
+    State(pool): State<PgPool>,
+    Path(group_id): Path<Uuid>,
+    cookies: Cookies,
+) -> Result<JSON<Vec<Account>>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let on_group = sqlx::query!(r#"
+SELECT COALESCE(COUNT(*), 0) as "count!" FROM meet.group_users as g
+WHERE g.group_id=$1 AND g.user_id=$2
+LIMIT 1
+"#, group_id, acc.id)
+        .fetch_one(&pool)
+        .await?
+        .count == 1;
+    if !on_group {
+        Err(AuthError("Only members can list group users".to_owned()))?;
+    }
+    sqlx::query_as!(Account, r#"
+SELECT id, name FROM inter.accounts as a
+INNER JOIN meet.group_users as g ON g.user_id=a.id
+WHERE g.group_id=$1
+"#, group_id)
+        .fetch_all(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+async fn invite_to_group(
+    State(pool): State<PgPool>,
+    Path((group_id, user_id)): Path<(Uuid, Uuid)>,
+    cookies: Cookies,
+) -> Result<StatusCode, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let is_group_owner = sqlx::query!(r#"
+SELECT owner_id FROM meet.groups
+WHERE id=$1
+"#, group_id)
+        .fetch_one(&pool)
+        .await?
+        .owner_id == acc.id;
+    if !is_group_owner {
+        Err(AuthError("Only owners can invite users to group".to_owned()))?;
+    }
+    sqlx::query!(r#"
+INSERT into meet.group_invites
+  (user_id, group_id)
+VALUES
+  ($1, $2)
+"#, user_id, group_id)
+        .execute(&pool)
+        .await?;
+    Ok(StatusCode::CREATED)
+}
+
+async fn remove_user(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Path((group_id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let is_group_owner = sqlx::query!(r#"
+SELECT owner_id FROM meet.groups
+WHERE id=$1
+"#, group_id)
+        .fetch_one(&pool)
+        .await?
+        .owner_id == acc.id;
+    if !is_group_owner {
+        Err(AuthError("Only owners can remove users from group".to_owned()))?;
+    }
+    if acc.id == user_id {
+        Err(LogicError("Can't remove self from group".to_owned()))?;
+    }
+    sqlx::query!(r#"
+DELETE FROM meet.group_users
+WHERE user_id=$1 AND group_id=$2
+"#, user_id, group_id).execute(&pool).await?;
+    Ok(StatusCode::OK)
+}
+
+async fn list_invites(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+) -> Result<JSON<Vec<GroupInvite>>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    sqlx::query_as!(GroupInvite, r#"
+SELECT g.id as "group_id", g.name as "group_name"
+FROM meet.groups as g
+INNER JOIN meet.group_invites as i ON i.group_id=g.id
+WHERE i.user_id=$1
+"#, acc.id)
+        .fetch_all(&pool)
+        .await
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
+async fn answer_invite(
+    State(pool): State<PgPool>,
+    cookies: Cookies,
+    Path(invite_id): Path<i32>,
+    Json(action): JSON<InviteAction>
+) -> Result<JSON<Option<Group>>, Error> {
+    let acc = crate::accounts::get_acc(&cookies, &pool).await?;
+    let group_id = sqlx::query!(r#"
+DELETE FROM meet.group_invites
+WHERE user_id=$1 AND invite_id=$2
+RETURNING group_id
+"#, acc.id, invite_id)
+        .fetch_one(&pool)
+        .await?.group_id;
+    if let InviteAction::Refuse = action {
+        return Ok(axum::Json(None))
+    }
+    sqlx::query!(r#"
+INSERT INTO meet.group_users
+  (group_id, user_id)
+VALUES
+  ($1, $2)
+"#, group_id, acc.id)
+        .execute(&pool)
+        .await?;
+    sqlx::query_as!(Group, r#"
+SELECT id, name, description
+FROM meet.groups as g
+WHERE g.id=$1
+"#, group_id)
+        .fetch_one(&pool)
+        .await
+        .map(Some)
+        .map(axum::Json)
+        .map_err(Error::from)
+}
+
 async fn index(
     State(pool): State<PgPool>,
     cookies: Cookies,
 ) -> Result<Markup, axum::response::Redirect> {
-    //let owner = crate::accounts::get_acc(&cookies, &pool)
-    //    .await
-    //    .or(Err(axum::response::Redirect::to("/login")))?;
     Ok(html!{
         (DOCTYPE)
         head {

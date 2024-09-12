@@ -5,18 +5,19 @@ pub mod crypt;
 pub mod meet;
 //TODO all errors to string + StatusCode instead of markup
 
+pub use uuid::Uuid;
 use tower_cookies::Cookies;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
-const ARGON_SALT: &'static str =
+const ARGON_SALT: &str =
     dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
 
 trait DescribeError {
-    fn describe(&self) -> (String, axum::http::StatusCode);
+    fn describe(&self) -> (axum::http::StatusCode, String);
     fn message(&self) -> String {
-        self.describe().0
+        self.describe().1
     }
     fn code(&self) -> axum::http::StatusCode {
-        self.describe().1
+        self.describe().0
     }
 }
 

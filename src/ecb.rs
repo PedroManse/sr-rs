@@ -47,23 +47,14 @@ pub fn get_nav(
 }
 
 impl DescribeError for Error {
-    fn describe(&self) -> (String, axum::http::StatusCode) {
-        if let CryptError(_) = self {
-            return (
-                "Can't decrypt Clip".to_owned(),
-                axum::http::StatusCode::BAD_REQUEST,
-            )
-        }
-        (
-            self.to_string(),
-            axum::http::StatusCode::BAD_REQUEST,
-        )
+    fn describe(&self) -> (axum::http::StatusCode, String) {
+        (axum::http::StatusCode::BAD_REQUEST, self.to_string())
     }
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        let (desc, code) = self.describe();
+        let (code, desc) = self.describe();
         (code, html! {
             h1 { "EasyClipBoard error" };
             h2 { (desc) };

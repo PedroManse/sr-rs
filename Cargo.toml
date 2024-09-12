@@ -15,7 +15,7 @@ dotenvy = "0.15.7"
 tokio = { version = "1.36.0", features = ["rt", "macros"] }
 tower-cookies = "0.10.0"
 tower-http = { version = "0.5.2", features = ["fs"] }
-uuid = "1.7.0"
+uuid = { version = "1.7.0", features = ["serde"] }
 jsonwebtoken = "9.3.0"
 fxhash = "0.2.1"
 openssl = "0.10.66"

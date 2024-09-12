@@ -31,21 +31,23 @@ pub enum Error {
 }
 
 impl DescribeError for Error {
-    fn describe(&self) -> (String, axum::http::StatusCode) {
+    fn describe(&self) -> (axum::http::StatusCode, String) {
         use axum::http::StatusCode;
         // for special handling of errors
-        match self {
-            UUIDError(e)=> (e.to_string(), StatusCode::BAD_REQUEST),
-            SqlError(e) => (e.to_string(), StatusCode::BAD_REQUEST),
-            JWTError(e) => (e.to_string(), StatusCode::UNAUTHORIZED),
-            MissingCookie=>("Missing cookie".to_owned(), StatusCode::UNAUTHORIZED),
-        }
+        let st = format!("{self:?}");
+        let code = match self {
+            MissingCookie=>StatusCode::UNAUTHORIZED,
+            UUIDError(_)=> StatusCode::BAD_REQUEST,
+            SqlError(_) => StatusCode::BAD_REQUEST,
+            JWTError(_) => StatusCode::UNAUTHORIZED,
+        };
+        (code, st)
     }
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        let (desc, code) = self.describe();
+        let (code, desc) = self.describe();
         (code, html! {
             h1 {"Erro:"}
             h2 { (desc) }
@@ -150,6 +152,7 @@ async fn login_get(
     }
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Hash, Clone, Debug)]
 pub struct Account {
     pub name: String,
     pub id: uuid::Uuid,
