@@ -427,8 +427,8 @@ async fn index(
         (DOCTYPE)
         head {
             (CSS("/files/style.css"));
-            (CSS("/files/css/calendar.css"));
-            (JS("/files/js/calendar.js"));
+            (CSS("/files/css/meet.css"));
+            (JS("/files/js/meet.js"));
         }
         body {
             (nav("/meet/user", &cookies, &pool).await);

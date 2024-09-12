@@ -50,7 +50,7 @@ function savableNote(card) {
 		if (!confirm("Deletar nota?")) {
 			return;
 		}
-		const r = await (fetch("/notebook/user/note/"+noteid, {
+		const r = await (fetch("/meet/user/note/"+noteid, {
 			method: "DELETE",
 		}).then(
 			a=>a.status,
@@ -68,7 +68,7 @@ function savableNote(card) {
 		const content = editArea.value;
 		const contentArea = El("span", content);
 
-		const r = await (fetch("/notebook/user/note/"+noteid, {
+		const r = await (fetch("/meet/user/note/"+noteid, {
 			method: "PUT",
 			headers: {"Content-Type":"application/json"},
 			body: JSON.stringify({content})
@@ -125,19 +125,18 @@ function makeNoteCreator(noteBoard) {
 	const card = El("div", [ textArea, button ]);
 	button.addEventListener("click", async ()=>{
 		const content = textArea.value;
-		const r = await fetch("/notebook/user/note", {
+		const r = await fetch("/meet/user/note", {
 			method: "POST",
 			headers: {"Content-Type":"application/json"},
 			body: JSON.stringify({content})
-		})
-		const note = await r.json();
-		console.log(r, note)
+		}).catch(()=>({status: 400}));
 		if (r.status === 200) {
+			const note = await r.json();
 			textArea.value = ""
 			const noteCard = makeNote(note)
 			noteBoard.appendChild(noteCard)
 		} else {
-			alert("failed")
+			alert("failed to create note")
 		}
 	})
 	return card;
@@ -164,7 +163,7 @@ function listTriggerNote(noteBoard) {
 	respondToVisibility(loader, async ()=>{
 		const query = new URLSearchParams({page, page_size});
 		page++;
-		fetch("/notebook/user/note?"+query)
+		fetch("/meet/user/note?"+query)
 			.then(a=>a.json())
 			.then(notes=>{
 				notes.content

@@ -91,7 +91,7 @@ pub async fn nav(
                 url, "/", "home",
             ));
             (simple_nav_item(
-                url, "/notebook/user", "Meet",
+                url, "/meet/user", "Meet",
             ));
             (ecb::get_nav(url));
             (accounts::get_nav(url, cookies, pool).await);
