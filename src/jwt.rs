@@ -1,7 +1,8 @@
 use jsonwebtoken as jwt;
 pub use jsonwebtoken::errors::Error;
 
-const PRIV_PEM: &str = include_str!("../.priv.pem");
+//TODO jwt private key path in env
+const PRIV_PEM: &str = include_str!("../priv.pem");
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct Claims<T>

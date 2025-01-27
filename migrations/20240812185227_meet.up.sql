@@ -29,7 +29,7 @@ CREATE TABLE meet.group_users (
 	user_id UUID NOT NULL REFERENCES inter.accounts(id) ON DELETE CASCADE
 );
 
-CREATE TABLE meet.group_nvites (
+CREATE TABLE meet.group_invites (
 	invite_id SERIAL NOT NULL PRIMARY KEY,
 	group_id UUID NOT NULL REFERENCES meet.groups(id) ON DELETE CASCADE,
 	user_id UUID NOT NULL REFERENCES inter.accounts(id) ON DELETE CASCADE,

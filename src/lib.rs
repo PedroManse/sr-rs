@@ -3,7 +3,9 @@ pub mod ecb;
 pub mod jwt;
 pub mod crypt;
 pub mod meet;
-//TODO all errors to string + StatusCode instead of markup
+pub mod soc;
+//TODO better HTMLError trait
+//TODO better HTMLNav trait
 
 pub use uuid::Uuid;
 use tower_cookies::Cookies;
@@ -11,7 +13,7 @@ const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &str =
     dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
 
-trait DescribeError {
+pub trait DescribeError {
     fn describe(&self) -> (axum::http::StatusCode, String);
     fn message(&self) -> String {
         self.describe().1
