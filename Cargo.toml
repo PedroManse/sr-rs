@@ -10,7 +10,6 @@ serde = { version = "1.0.204", features = ["derive"] }
 sqlx = { version = "0.8.0", features = ["chrono", "postgres", "runtime-tokio", "uuid"] }
 thiserror = "1.0.63"
 argon2rs = "0.2.5"
-dotenv_codegen = "0.15.0"
 dotenvy = "0.15.7"
 tokio = { version = "1.36.0", features = ["rt", "macros"] }
 tower-cookies = "0.10.0"

@@ -10,8 +10,7 @@ pub mod soc;
 pub use uuid::Uuid;
 use tower_cookies::Cookies;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
-const ARGON_SALT: &str =
-    dotenv_codegen::dotenv!("ARGON_SALT", "SALT must be defined for argon2d");
+const ARGON_SALT: &str = env!("ARGON_SALT");
 
 pub trait DescribeError {
     fn describe(&self) -> (axum::http::StatusCode, String);
