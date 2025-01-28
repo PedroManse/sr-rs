@@ -2,3 +2,5 @@ target
 .env
 .priv.pem
 .pub.pem
+.envrc
+.direnv
