@@ -6,7 +6,6 @@ DROP TABLE soc.article;
 DROP TABLE soc.comment;
 DROP TABLE soc.post;
 DROP TABLE soc.item;
-DROP TABLE soc.resource;
 DROP TABLE soc.user;
 DROP TYPE item_type;
 DROP SCHEMA "soc";

@@ -16,15 +16,10 @@ CREATE TABLE soc.user (
 	username TEXT NOT NULL UNIQUE
 );
 
-CREATE TABLE soc.resource (
-	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-	url TEXT NOT NULL
-);
-
 CREATE TABLE soc.item (
 	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	poster BIGINT NOT NULL REFERENCES soc.user(id) ON DELETE CASCADE,
-	posted_time TIMESTAMPTZ,
+	posted_time TIMESTAMPTZ DEFAULT (NOW() AT TIME ZONE 'UTC') NOT NULL,
 	item_type item_type NOT NULL
 );
 
@@ -41,7 +36,7 @@ CREATE TABLE soc.comment (
 
 CREATE TABLE soc.article (
 	item_id BIGINT NOT NULL UNIQUE REFERENCES soc.item(id),
-	resource_id BIGINT NOT NULL REFERENCES soc.resource(id),
+	url TEXT NOT NULL,
 	title TEXT NOT NULL
 );
 
@@ -53,7 +48,7 @@ CREATE TABLE soc.gallery (
 
 CREATE TABLE soc.gallery_photo (
 	gallery BIGINT NOT NULL UNIQUE REFERENCES soc.gallery(id),
-	resource_id BIGINT NOT NULL REFERENCES soc.resource(id)
+	url TEXT NOT NULL
 );
 
 CREATE TABLE soc.repost (

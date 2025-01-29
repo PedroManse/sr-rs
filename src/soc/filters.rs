@@ -2,44 +2,43 @@ use std::marker::PhantomData;
 
 use super::*;
 
-pub struct OrFilter<I: Item, F: ItemFilter<I>> {
+pub struct OrFilter<I: ItemInfo, F: ItemFilter<I>> {
     pub filters: Vec<F>,
-    pub item_type:PhantomData<I>,
+    pub item_type: PhantomData<I>,
 }
 
 impl<I, F> ItemFilter<I> for OrFilter<I, F>
 where
-    I: Item + Sync,
-    F: ItemFilter<I> + Sync
+    I: ItemInfo + Sync,
+    F: ItemFilter<I> + Sync,
 {
-    async fn filter(&self, item: &I, pool: &PgPool) -> bool {
+    fn filter(&self, item: &I) -> bool {
         for f in self.filters.iter() {
-            if f.filter(item, pool).await {
+            if f.filter(item) {
                 return true;
             }
         }
-        return false;
+        false
     }
 }
 
-
-pub struct AndFilter<I: Item, F: ItemFilter<I>> {
+pub struct AndFilter<I: ItemInfo, F: ItemFilter<I>> {
     pub filters: Vec<F>,
-    pub item_type:PhantomData<I>,
+    pub item_type: PhantomData<I>,
 }
 
 impl<I, F> ItemFilter<I> for AndFilter<I, F>
 where
-    I: Item + Sync,
-    F: ItemFilter<I> + Sync
+    I: ItemInfo,
+    F: ItemFilter<I>,
 {
-    async fn filter(&self, item: &I, pool: &PgPool) -> bool {
+    fn filter(&self, item: &I) -> bool {
         for f in self.filters.iter() {
-            if !f.filter(item, pool).await {
+            if !f.filter(item) {
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
@@ -47,9 +46,11 @@ pub struct HasText {
     pub text: String,
 }
 
-impl ItemFilter<Post> for HasText {
-    async fn filter(&self, item: &Post, pool: &PgPool) -> bool {
-        item.get_body(pool).await.contains(&self.text)
+impl<I> ItemFilter<I> for HasText
+where
+    I: ItemInfo,
+{
+    fn filter(&self, item: &I) -> bool {
+        item.get_body().contains(&self.text)
     }
 }
-

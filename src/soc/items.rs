@@ -1,5 +1,23 @@
 use super::*;
+use enum_dispatch::*;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug, sqlx::Type)]
+#[sqlx(type_name = "item_type")]
+pub enum ItemType {
+    #[sqlx(rename = "post")]
+    DBPost,
+    #[sqlx(rename = "comment")]
+    DBComment,
+    #[sqlx(rename = "gallery")]
+    DBGalleryPost,
+    #[sqlx(rename = "article")]
+    DBArticlePost,
+    #[sqlx(rename = "repost")]
+    DBRepost,
+}
+
+#[enum_dispatch] /*impl Item*/
 pub enum AnyItem {
     Post(Post),
     Comment(Comment),
@@ -8,100 +26,124 @@ pub enum AnyItem {
     Repost(Repost),
 }
 
+impl ItemInfo for AnyItem {
+    fn get_link(&self) -> String {
+        use AnyItem::*;
+        match &self {
+            Post(p) => p.get_link(),
+            Comment(p) => p.get_link(),
+            GalleryPost(p) => p.get_link(),
+            ArticlePost(p) => p.get_link(),
+            Repost(p) => p.get_link(),
+        }
+    }
+    fn get_body(&self) -> String {
+        use AnyItem::*;
+        match &self {
+            Post(p) => p.get_body(),
+            Comment(p) => p.get_body(),
+            GalleryPost(p) => p.get_body(),
+            ArticlePost(p) => p.get_body(),
+            Repost(p) => p.get_body(),
+        }
+    }
+}
+
 macro_rules! defItem {
-    ($name:ident { $( $t:tt )* } )=> {
+    ($name:ident From<$db:ty> { $( $t:tt )* } )=> {
         pub struct $name {
             pub posted: chrono::DateTime<chrono::Utc>,
             pub poster: UserId,
             pub id: ItemId,
             $( $t )*
         }
+        impl Item for $name {
+            type DBType = $db;
+        }
         impl PartialItem for $name {
-            fn _get_id(&self) -> ItemId {
+            fn get_id(&self) -> ItemId {
                 self.id
             }
-            fn _get_poster(&self) -> UserId {
+            fn get_poster(&self) -> UserId {
                 self.poster
             }
-            fn _get_publish_date(&self) -> &chrono::DateTime<chrono::Utc> {
+            fn get_publish_date(&self) -> &chrono::DateTime<chrono::Utc> {
                 &self.posted
             }
         }
     };
 }
 
-defItem!(Post {
+defItem!(Post From<DBPost> {
     pub text: String,
 });
 
-impl Item for Post {
+impl ItemInfo for Post {
     fn get_link(&self) -> String {
         format!("https://manse.dev.br/soc/post/{}", self.id.0)
     }
-    async fn get_body(&self, _: &PgPool) -> String {
+    fn get_body(&self) -> String {
         self.text.clone()
     }
 }
 
-defItem!(Comment {
+defItem!(Comment From<DBComment> {
     pub parent: ItemId,
     pub text: String,
 });
 
-impl Item for Comment {
+impl ItemInfo for Comment {
     fn get_link(&self) -> String {
         format!("https://manse.dev.br/soc/comment/{}", self.id.0)
     }
-    async fn get_body(&self, _: &PgPool) -> String {
+    fn get_body(&self) -> String {
         self.text.clone()
     }
 }
 
-defItem!(GalleryPost {
+defItem!(GalleryPost From<DBGalleryPost> {
     pub title: String,
-    pub images: Vec<ResourceId>,
+    pub images: Vec<Url>,
 });
 
-impl Item for GalleryPost {
+impl ItemInfo for GalleryPost {
     fn get_link(&self) -> String {
         format!("https://manse.dev.br/soc/gallery/{}", self.id.0)
     }
-    async fn get_body(&self, pool: &PgPool) -> String {
+    fn get_body(&self) -> String {
         let mut st = String::new();
         for img in &self.images {
-            st += &img.get_link(pool).await.unwrap().as_str();
+            st += img.as_str();
             st += "\n";
         }
         st
     }
 }
 
-defItem!(ArticlePost {
+defItem!(ArticlePost From<DBArticlePost> {
     pub title: String,
-    pub article: ResourceId,
+    pub article: Url,
 });
 
-impl Item for ArticlePost {
+impl ItemInfo for ArticlePost {
     fn get_link(&self) -> String {
         format!("https://manse.dev.br/soc/article/{}", self.id.0)
     }
-    async fn get_body(&self, pool: &PgPool) -> String {
-        self.article.get_link(pool).await.unwrap().to_string()
+    fn get_body(&self) -> String {
+        todo!()
     }
 }
 
-defItem!(Repost {
+defItem!(Repost From<DBRepost> {
     pub comment: String,
     pub original: ItemId,
 });
 
-
-impl Item for Repost {
+impl ItemInfo for Repost {
     fn get_link(&self) -> String {
         format!("https://manse.dev.br/soc/repost/{}", self.id.0)
     }
-    async fn get_body(&self, _: &PgPool) -> String {
-        format!("https://manse.dev.br/soc/post/{}", self.original.0)
+    fn get_body(&self) -> String {
+        todo!()
     }
 }
-
