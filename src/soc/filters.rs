@@ -9,11 +9,16 @@ pub struct OrFilter<I: Item, F: ItemFilter<I>> {
 
 impl<I, F> ItemFilter<I> for OrFilter<I, F>
 where
-    I: Item,
-    F: ItemFilter<I>
+    I: Item + Sync,
+    F: ItemFilter<I> + Sync
 {
-    fn filter(&self, item: &I) -> bool {
-        self.filters.iter().any(|f|f.filter(item))
+    async fn filter(&self, item: &I, pool: &PgPool) -> bool {
+        for f in self.filters.iter() {
+            if f.filter(item, pool).await {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -25,11 +30,16 @@ pub struct AndFilter<I: Item, F: ItemFilter<I>> {
 
 impl<I, F> ItemFilter<I> for AndFilter<I, F>
 where
-    I: Item,
-    F: ItemFilter<I>
+    I: Item + Sync,
+    F: ItemFilter<I> + Sync
 {
-    fn filter(&self, item: &I) -> bool {
-        self.filters.iter().all(|f|f.filter(item))
+    async fn filter(&self, item: &I, pool: &PgPool) -> bool {
+        for f in self.filters.iter() {
+            if !f.filter(item, pool).await {
+                return false;
+            }
+        }
+        return true;
     }
 }
 
@@ -38,8 +48,8 @@ pub struct HasText {
 }
 
 impl ItemFilter<Post> for HasText {
-    fn filter(&self, item: &Post) -> bool {
-        item.get_body().contains(&self.text)
+    async fn filter(&self, item: &Post, pool: &PgPool) -> bool {
+        item.get_body(pool).await.contains(&self.text)
     }
 }
 

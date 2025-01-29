@@ -19,3 +19,4 @@ jsonwebtoken = "9.3.0"
 fxhash = "0.2.1"
 openssl = "0.10.66"
 chrono = { version = "0.4.38", features = ["serde"] }
+url = "2.5.4"
