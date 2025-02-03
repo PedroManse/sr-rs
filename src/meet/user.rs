@@ -1,7 +1,9 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    AccountError(#[from] crate::accounts::Error),
+    AccountFrontError(#[from] crate::accounts::FError),
+    #[error(transparent)]
+    AccountApiError(#[from] crate::accounts::AError),
     #[error(transparent)]
     SqlxError(#[from] sqlx::Error),
     #[error("Authorization Error: {0}")]
@@ -18,27 +20,6 @@ impl IntoResponse for Error {
         self.render_error()
     }
 }
-
-//TODO SqlxError actually handle different db errors
-//impl DescribeError for Error {
-//    fn dE DPS VC ME JULGA POR GOASAescribe(&self) -> (StatusCode, String) {
-//        // for special handling of errors
-//        let code = match self {
-//            //AccountError(e) => return e.describe(),
-//            SqlxError(_) => StatusCode::BAD_REQUEST,
-//            AuthError(_) => StatusCode::FORBIDDEN,
-//            LogicError(_) => StatusCode::FORBIDDEN,
-//        };
-//        ( code, format!("{self:?}") )
-//    }
-//}
-
-//TODO SqlxError actually handle different db errors
-//impl IntoResponse for Error {
-//    fn into_response(self) -> axum::response::Response {
-//        format!("{:?}", self).into_response()
-//    }
-//}
 
 use crate::*;
 use axum::{

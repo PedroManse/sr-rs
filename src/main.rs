@@ -5,12 +5,12 @@ use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::services::ServeDir;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), RootError> {
     let pool = acquire_pool().await?;
 
     let app = Router::new()
         .route("/", get(index))
-        .nest("/accounts", accounts::service())
+        .nest("/accounts", accounts::AccountModule::service())
         .nest("/ecb", ecb::service())
         .nest("/meet", meet::service())
         .layer(CookieManagerLayer::new())

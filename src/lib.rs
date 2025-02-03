@@ -1,17 +1,22 @@
-pub mod accounts;
 pub mod crypt;
 pub mod ecb;
 pub mod jwt;
 pub mod meet;
+pub mod accounts;
 //TODO better HTMLError trait
 
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
+use axum::Router;
 use serde_json::json;
 use tower_cookies::Cookies;
 pub use uuid::Uuid;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &str = env!("ARGON_SALT");
+
+pub trait Routes {
+    fn service() -> Router<PgPool>;
+}
 
 pub trait HTMLNav {
     fn render(
@@ -57,14 +62,14 @@ where
 }
 
 pub use sqlx::postgres::PgPool;
-pub async fn acquire_pool() -> Result<PgPool, Error> {
+pub async fn acquire_pool() -> Result<PgPool, RootError> {
     dotenvy::dotenv()?;
     let url = std::env::var("DATABASE_URL").unwrap();
-    PgPool::connect(&url).await.map_err(Error::from)
+    PgPool::connect(&url).await.map_err(RootError::from)
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum RootError {
     #[error(transparent)]
     EnvError(#[from] dotenvy::Error),
     #[error(transparent)]

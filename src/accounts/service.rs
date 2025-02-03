@@ -1,53 +1,16 @@
-use crate::*;
-use axum::{
-    extract::*,
-    response::{IntoResponse, Redirect},
-    routing::{get, post},
-    Router,
-};
-use maud::html;
-use tower_cookies::{Cookie, Cookies};
+use axum::extract::State;
+use axum::response::Redirect;
+use axum::Form;
+use tower_cookies::Cookie;
 
-pub fn service() -> Router<PgPool> {
-    Router::new()
-        .route("/register", post(register_post))
-        .route("/register", get(register_get))
-        .route("/login", get(login_get))
-        .route("/login", post(login_post))
-}
+use super::*;
 
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    SqlError(#[from] sqlx::Error),
-    #[error(transparent)]
-    JWTError(#[from] jwt::Error),
-    #[error(transparent)]
-    UUIDError(#[from] uuid::Error),
-
-    #[error("Missing cookie")]
-    MissingCookie,
-}
-
-impl FrontError for Error {} // auto impl render_error
-impl IntoResponse for Error{
-    fn into_response(self) -> axum::response::Response {
-        self.render_error()
-    }
-}
-
-#[derive(serde::Deserialize, Debug)]
-pub struct FormAccount {
-    name: String,
-    password: String,
-}
 
 pub async fn register_post(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Form(info): Form<FormAccount>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, FError> {
     let hashed = hash(&info.password);
     let id = sqlx::query!(
         r#"
@@ -72,7 +35,7 @@ RETURNING id"#,
     Ok(Redirect::to("/"))
 }
 
-async fn register_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
+pub async fn register_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     html! {
         (DOCTYPE);
         head {
@@ -100,7 +63,7 @@ async fn register_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     }
 }
 
-async fn login_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
+pub async fn login_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     html! {
         (DOCTYPE);
         head {
@@ -127,19 +90,13 @@ async fn login_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     }
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Hash, Clone, Debug)]
-pub struct Account {
-    pub name: String,
-    pub id: uuid::Uuid,
-}
-
-pub fn get_id(cookies: &Cookies) -> Result<uuid::Uuid, Error> {
-    let cookie = cookies.get(COOKIE_UUID_NAME).ok_or(Error::MissingCookie)?;
+pub fn get_id(cookies: &Cookies) -> Result<uuid::Uuid, FError> {
+    let cookie = cookies.get(COOKIE_UUID_NAME).ok_or(FError::MissingCookie)?;
     let uuid_str: String = jwt::verify(cookie.value())?;
     Ok(uuid::Uuid::parse_str(&uuid_str)?)
 }
 
-pub async fn get_acc(cookies: &Cookies, pool: &PgPool) -> Result<Account, Error> {
+pub async fn get_acc(cookies: &Cookies, pool: &PgPool) -> Result<Account, FError> {
     let id = get_id(cookies)?;
     let name = sqlx::query!(
         r#"
@@ -157,7 +114,7 @@ pub async fn login_post(
     State(pool): State<PgPool>,
     cookies: Cookies,
     Form(info): Form<FormAccount>,
-) -> Result<Redirect, Error> {
+) -> Result<Redirect, FError> {
     let hashed = hash(&info.password);
     let id = sqlx::query!(
         r#"
@@ -180,24 +137,3 @@ WHERE (password=$1 AND name=$2)"#,
     );
     Ok(Redirect::to("/"))
 }
-
-pub struct AccountModule;
-impl HTMLNav for AccountModule {
-    async fn render(url: &str, cookies: &Cookies, pool: &PgPool) -> Markup {
-        match accounts::get_acc(cookies, pool).await {
-            Ok(acc) => html! {
-                span.right {
-                    "Olá"
-                    a href="#" {(acc.name)}
-                }
-            },
-            Err(_) => html! {
-                span.right {
-                    "Faça" a."current-page"[url=="/accounts/login"] href="/accounts/login" {"login"}
-                    " ou " a."current-page"[url=="/accounts/register"] href="/accounts/register" {"Registre-se"}
-                }
-            },
-        }
-    }
-}
-
