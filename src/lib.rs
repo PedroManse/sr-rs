@@ -3,6 +3,7 @@ pub mod ecb;
 pub mod jwt;
 pub mod meet;
 pub mod accounts;
+pub mod soc2;
 //TODO better HTMLError trait
 
 use axum::body::Body;
