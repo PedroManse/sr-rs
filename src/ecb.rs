@@ -35,30 +35,31 @@ pub fn service() -> Router<PgPool> {
         .route("/private", get(query_private))
 }
 
-pub fn get_nav(
-    url: &str,
-) -> Markup {
+pub fn get_nav(url: &str) -> Markup {
     let selected = url.starts_with("/ecb");
-    html!{
+    html! {
         span {
             a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
         }
     }
 }
 
-impl DescribeError for Error {
-    fn describe(&self) -> (axum::http::StatusCode, String) {
-        (axum::http::StatusCode::BAD_REQUEST, self.to_string())
+pub struct Nav {}
+impl HTMLNav for Nav {
+    async fn render(url: &str, _: &Cookies, _: &PgPool) -> Markup {
+        let selected = url.starts_with("/ecb");
+        html! {
+            span {
+                a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
+            }
+        }
     }
 }
 
+impl FrontError for Error { }
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
-        let (code, desc) = self.describe();
-        (code, html! {
-            h1 { "EasyClipBoard error" };
-            h2 { (desc) };
-        }).into_response()
+        self.render_error()
     }
 }
 
@@ -137,12 +138,18 @@ async fn send_named(
 ) -> Result<Markup, Error> {
     let name = params.name;
     let content = params.content;
-    sqlx::query!("
+    sqlx::query!(
+        "
 INSERT INTO ecb.named (name, content)
 VALUES ($1, $2)
 ON CONFLICT (name)
 DO UPDATE SET content=$2
-", &name, &content).execute(&pool).await?;
+",
+        &name,
+        &content
+    )
+    .execute(&pool)
+    .await?;
     Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: \"" (name) "\""}
@@ -156,11 +163,14 @@ async fn query_named(
     Query(params): Query<ECBGetNamed>,
 ) -> Result<Markup, Error> {
     let name = params.name;
-    let content = sqlx::query!("
+    let content = sqlx::query!(
+        "
 SELECT (content)
 FROM ecb.named
 WHERE name=$1;
-", &name)
+",
+        &name
+    )
     .fetch_one(&pool)
     .await
     .or(Err(NameNotFoundError(name.clone())))?
@@ -174,7 +184,7 @@ WHERE name=$1;
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct ECBSendPrivate{
+struct ECBSendPrivate {
     content: String,
     name: String,
     password: String,
@@ -192,12 +202,18 @@ async fn send_private(
 ) -> Result<Markup, Error> {
     let name = params.name;
     let content = crypt::encrypt(&params.content, &params.password)?;
-    sqlx::query!("
+    sqlx::query!(
+        "
 INSERT INTO ecb.private (name, content)
 VALUES ($1, $2)
 ON CONFLICT (name)
 DO UPDATE SET content=$2;
-", name, content).execute(&pool).await?;
+",
+        name,
+        content
+    )
+    .execute(&pool)
+    .await?;
     Ok(html! {
         fieldset #"swap" {
             legend {"CLIP: #"(name)}
@@ -210,14 +226,18 @@ async fn query_private(
     State(pool): State<PgPool>,
     Query(params): Query<ECBGetPrivate>,
 ) -> Result<Markup, Error> {
-    let enc_cont = sqlx::query!("
+    let enc_cont = sqlx::query!(
+        "
 SELECT (content)
 FROM ecb.private
 WHERE name=$1;
-", &params.name).fetch_one(&pool)
-        .await
-        .or(Err(NameNotFoundError(params.name.clone())))?
-        .content;
+",
+        &params.name
+    )
+    .fetch_one(&pool)
+    .await
+    .or(Err(NameNotFoundError(params.name.clone())))?
+    .content;
     let content = crypt::decrypt(enc_cont, params.password)?;
     let content = std::str::from_utf8(&content).or(Err(FailedDecryption))?;
     Ok(html! {

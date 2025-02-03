@@ -1,29 +1,54 @@
 pub mod accounts;
+pub mod crypt;
 pub mod ecb;
 pub mod jwt;
-pub mod crypt;
 pub mod meet;
-pub mod soc;
 //TODO better HTMLError trait
-//TODO better HTMLNav trait
 
-pub use uuid::Uuid;
+use axum::body::Body;
+use axum::http::{Response, StatusCode};
+use serde_json::json;
 use tower_cookies::Cookies;
+pub use uuid::Uuid;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &str = env!("ARGON_SALT");
 
-pub trait DescribeError {
-    fn describe(&self) -> (axum::http::StatusCode, String);
-    fn message(&self) -> String {
-        self.describe().1
+pub trait HTMLNav {
+    fn render(
+        url: &str,
+        cookies: &Cookies,
+        pool: &PgPool,
+    ) -> impl std::future::Future<Output = Markup> + Send;
+}
+
+pub trait ApiError: Sized + std::error::Error {
+    fn build_error(self) -> Response<Body> {
+        Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from(json!({
+                "status_code": StatusCode::BAD_REQUEST.as_u16(),
+                "error_message": self.to_string(),
+            }).to_string()))
+            .unwrap()
     }
-    fn code(&self) -> axum::http::StatusCode {
-        self.describe().0
+}
+
+pub trait FrontError: Sized + std::error::Error {
+    fn render_error(self) -> Response<Body> {
+        Response::builder()
+            .status(StatusCode::BAD_REQUEST)
+            .body(Body::from(html!{
+                h1 {"Erro:"}
+                h2 { (self) }
+                a href="/" {"home"}
+            }.into_string()))
+            .unwrap()
     }
 }
 
 pub fn hash<P>(password: P) -> [u8; 32]
-where P:AsRef<[u8]>
+where
+    P: AsRef<[u8]>,
 {
     let mut out = [0; 32];
     let a2 = argon2rs::Argon2::default(argon2rs::Variant::Argon2d);
@@ -66,11 +91,7 @@ impl Render for JS {
     }
 }
 
-fn simple_nav_item(
-    user_url: &str,
-    check_url: &str,
-    content: &str,
-) -> Markup {
+fn simple_nav_item(user_url: &str, check_url: &str, content: &str) -> Markup {
     let here = user_url == check_url;
     maud::html! {
         span {
@@ -92,11 +113,11 @@ pub async fn nav(
             (simple_nav_item(
                 url, "/", "home",
             ));
-            (simple_nav_item(
-                url, "/meet/user", "Meet",
-            ));
-            (ecb::get_nav(url));
-            (accounts::get_nav(url, cookies, pool).await);
+            //(simple_nav_item(
+            //    url, "/meet/user", "Meet",
+            //));
+            (ecb::Nav::render(url, cookies, pool).await)
+            (accounts::AccountModule::render(url, cookies, pool).await)
         }
     }
 }

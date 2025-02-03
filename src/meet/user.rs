@@ -12,26 +12,33 @@ pub enum Error {
 use self::Error::*;
 use axum::http::StatusCode;
 
-//TODO SqlxError actually handle different db errors
-impl DescribeError for Error {
-    fn describe(&self) -> (StatusCode, String) {
-        // for special handling of errors
-        let code = match self {
-            AccountError(e) => return e.describe(),
-            SqlxError(_) => StatusCode::BAD_REQUEST,
-            AuthError(_) => StatusCode::FORBIDDEN,
-            LogicError(_) => StatusCode::FORBIDDEN,
-        };
-        ( code, format!("{self:?}") )
+impl FrontError for Error {}
+impl IntoResponse for Error {
+    fn into_response(self) -> axum::response::Response {
+        self.render_error()
     }
 }
 
 //TODO SqlxError actually handle different db errors
-impl IntoResponse for Error {
-    fn into_response(self) -> axum::response::Response {
-        format!("{:?}", self).into_response()
-    }
-}
+//impl DescribeError for Error {
+//    fn dE DPS VC ME JULGA POR GOASAescribe(&self) -> (StatusCode, String) {
+//        // for special handling of errors
+//        let code = match self {
+//            //AccountError(e) => return e.describe(),
+//            SqlxError(_) => StatusCode::BAD_REQUEST,
+//            AuthError(_) => StatusCode::FORBIDDEN,
+//            LogicError(_) => StatusCode::FORBIDDEN,
+//        };
+//        ( code, format!("{self:?}") )
+//    }
+//}
+
+//TODO SqlxError actually handle different db errors
+//impl IntoResponse for Error {
+//    fn into_response(self) -> axum::response::Response {
+//        format!("{:?}", self).into_response()
+//    }
+//}
 
 use crate::*;
 use axum::{

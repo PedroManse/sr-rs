@@ -1,7 +1,7 @@
 use axum::{extract, routing::get, Router};
 use maud::Markup;
 use sr_rs::*;
-use tower_cookies::{Cookies, CookieManagerLayer};
+use tower_cookies::{CookieManagerLayer, Cookies};
 use tower_http::services::ServeDir;
 
 #[tokio::main(flavor = "current_thread")]
@@ -40,4 +40,3 @@ async fn index(
         }
     })
 }
-

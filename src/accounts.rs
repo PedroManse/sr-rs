@@ -1,4 +1,3 @@
-use self::Error::*;
 use crate::*;
 use axum::{
     extract::*,
@@ -17,6 +16,7 @@ pub fn service() -> Router<PgPool> {
         .route("/login", post(login_post))
 }
 
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
@@ -30,29 +30,10 @@ pub enum Error {
     MissingCookie,
 }
 
-impl DescribeError for Error {
-    fn describe(&self) -> (axum::http::StatusCode, String) {
-        use axum::http::StatusCode;
-        // for special handling of errors
-        let st = format!("{self:?}");
-        let code = match self {
-            MissingCookie=>StatusCode::UNAUTHORIZED,
-            UUIDError(_)=> StatusCode::BAD_REQUEST,
-            SqlError(_) => StatusCode::BAD_REQUEST,
-            JWTError(_) => StatusCode::UNAUTHORIZED,
-        };
-        (code, st)
-    }
-}
-
-impl IntoResponse for Error {
+impl FrontError for Error {} // auto impl render_error
+impl IntoResponse for Error{
     fn into_response(self) -> axum::response::Response {
-        let (code, desc) = self.describe();
-        (code, html! {
-            h1 {"Erro:"}
-            h2 { (desc) }
-            a href="/" {"home"}
-        }).into_response()
+        self.render_error()
     }
 }
 
@@ -91,10 +72,7 @@ RETURNING id"#,
     Ok(Redirect::to("/"))
 }
 
-async fn register_get(
-    State(pool): State<PgPool>,
-    cookies: Cookies,
-) -> Markup {
+async fn register_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     html! {
         (DOCTYPE);
         head {
@@ -122,10 +100,7 @@ async fn register_get(
     }
 }
 
-async fn login_get(
-    State(pool): State<PgPool>,
-    cookies: Cookies,
-) -> Markup {
+async fn login_get(State(pool): State<PgPool>, cookies: Cookies) -> Markup {
     html! {
         (DOCTYPE);
         head {
@@ -158,50 +133,24 @@ pub struct Account {
     pub id: uuid::Uuid,
 }
 
-pub fn get_id(
-    cookies: &Cookies,
-) -> Result<uuid::Uuid, Error> {
-    let cookie = cookies
-        .get(COOKIE_UUID_NAME)
-        .ok_or(Error::MissingCookie)?;
+pub fn get_id(cookies: &Cookies) -> Result<uuid::Uuid, Error> {
+    let cookie = cookies.get(COOKIE_UUID_NAME).ok_or(Error::MissingCookie)?;
     let uuid_str: String = jwt::verify(cookie.value())?;
     Ok(uuid::Uuid::parse_str(&uuid_str)?)
 }
 
-pub async fn get_acc(
-    cookies: &Cookies,
-    pool: &PgPool,
-) -> Result<Account, Error> {
+pub async fn get_acc(cookies: &Cookies, pool: &PgPool) -> Result<Account, Error> {
     let id = get_id(cookies)?;
     let name = sqlx::query!(
         r#"
 SELECT (name) FROM inter.accounts
 WHERE (id=$1)"#,
-id
+        id
     )
-    .fetch_one(pool).await?.name;
-    Ok(Account{name, id})
-}
-
-pub async fn get_nav(
-    url: &str,
-    cookies: &Cookies,
-    pool: &PgPool,
-) -> Markup {
-    match accounts::get_acc(cookies, pool).await {
-        Ok(acc)=>html!{
-            span.right {
-                "Olá"
-                a href="#" {(acc.name)}
-            }
-        },
-        Err(_)=>html!{
-            span.right {
-                "Faça" a."current-page"[url=="/accounts/login"] href="/accounts/login" {"login"}
-                " ou " a."current-page"[url=="/accounts/register"] href="/accounts/register" {"Registre-se"}
-            }
-        },
-    }
+    .fetch_one(pool)
+    .await?
+    .name;
+    Ok(Account { name, id })
 }
 
 pub async fn login_post(
@@ -230,5 +179,25 @@ WHERE (password=$1 AND name=$2)"#,
             .into(),
     );
     Ok(Redirect::to("/"))
+}
+
+pub struct AccountModule;
+impl HTMLNav for AccountModule {
+    async fn render(url: &str, cookies: &Cookies, pool: &PgPool) -> Markup {
+        match accounts::get_acc(cookies, pool).await {
+            Ok(acc) => html! {
+                span.right {
+                    "Olá"
+                    a href="#" {(acc.name)}
+                }
+            },
+            Err(_) => html! {
+                span.right {
+                    "Faça" a."current-page"[url=="/accounts/login"] href="/accounts/login" {"login"}
+                    " ou " a."current-page"[url=="/accounts/register"] href="/accounts/register" {"Registre-se"}
+                }
+            },
+        }
+    }
 }
 
