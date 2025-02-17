@@ -14,7 +14,7 @@ pub enum Error {
 use self::Error::*;
 use axum::http::StatusCode;
 
-impl FrontError for Error {}
+impl HTMLError for Error {}
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         self.render_error()

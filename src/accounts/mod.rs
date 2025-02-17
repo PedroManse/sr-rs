@@ -67,8 +67,8 @@ pub enum FError {
     MissingCookie,
 }
 
-impl crate::FrontError for FError { }
-impl crate::ApiError for AError { }
+impl crate::HTMLError for FError { }
+impl crate::APIError for AError { }
 impl IntoResponse for FError {
     fn into_response(self) -> axum::response::Response {
         self.render_error()

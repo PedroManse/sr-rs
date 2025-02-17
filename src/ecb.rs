@@ -8,6 +8,8 @@ use axum::{
 };
 use maud::*;
 
+//TODO split Error into BackError (impl ApiError) and FrontError (impl FrontError) error
+// and join with EcbError (impl IntoResponse)
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("No such Clip #{0}")]
@@ -56,7 +58,7 @@ impl HTMLNav for Nav {
     }
 }
 
-impl FrontError for Error { }
+impl HTMLError for Error { }
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         self.render_error()

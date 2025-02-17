@@ -1,5 +1,6 @@
 use super::*;
 use sqlx::PgPool;
+use url::Url;
 
 pub struct UserRef(pub i64);
 pub struct ItemRef(pub i64);
@@ -23,16 +24,19 @@ macro_rules! defItem {
     };
 }
 
-struct ItemCommonInfo {
+pub struct ItemCommonInfo{
     pub posted: chrono::DateTime<chrono::Utc>,
     pub poster: UserRef,
     pub id: ItemRef,
 }
 
-impl ItemCommonInfo {
-    fn new(user: UserRef, pool: &PgPool) -> Result<Self> {
-        todo!()
-    }
+impl Item {
+    async fn new_item(poster: UserRef) -> Result<ItemCommonInfo>
+    pub(super) async fn new_post(poster: UserRef, text: &str) -> Result<Post> { todo!() }
+    pub(super) async fn new_comment(poster: UserRef, parent: ItemRef, text: &str) -> Result<Post> { todo!() }
+    pub(super) async fn new_gallery(poster: UserRef, text: &str, photos: Vec<Url>) -> Result<Post> { todo!() }
+    pub(super) async fn new_article(poster: UserRef, text: &str, article: Url) -> Result<Post> { todo!() }
+    pub(super) async fn new_repost(poster: UserRef, text: &str, parent: ItemRef) -> Result<Post> { todo!() }
 }
 
 defItem!(Post {
@@ -45,7 +49,7 @@ defItem!(Comment {
 });
 
 impl Comment {
-    pub async fn get_parent(&self, pool: &PgPool) -> Result<Item> {
+    pub async fn get_parent(id: ItemRef, pool: &PgPool) -> Result<Item> {
         todo!()
     }
 }
@@ -54,6 +58,16 @@ impl Comment {
 defItem!(GalleryPost {
     pub title: String,
 });
+
+struct GalleryPhoto {
+    url: Url,
+}
+
+impl Comment {
+    pub async fn get_photos(id: ItemRef, pool: &PgPool) -> Result<Vec<GalleryPhoto>> {
+        todo!()
+    }
+}
 
 defItem!(ArticlePost {
     pub title: String,
@@ -66,7 +80,7 @@ defItem!(Repost {
 });
 
 impl Repost {
-    pub async fn get_original(&self, pool: &PgPool) -> Result<Item> {
+    pub async fn get_original(id: ItemRef, pool: &PgPool) -> Result<Item> {
         todo!()
     }
 }

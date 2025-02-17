@@ -27,7 +27,7 @@ pub trait HTMLNav {
     ) -> impl std::future::Future<Output = Markup> + Send;
 }
 
-pub trait ApiError: Sized + std::error::Error {
+pub trait APIError: Sized + std::error::Error {
     fn build_error(self) -> Response<Body> {
         Response::builder()
             .status(StatusCode::BAD_REQUEST)
@@ -39,7 +39,7 @@ pub trait ApiError: Sized + std::error::Error {
     }
 }
 
-pub trait FrontError: Sized + std::error::Error {
+pub trait HTMLError: Sized + std::error::Error {
     fn render_error(self) -> Response<Body> {
         Response::builder()
             .status(StatusCode::BAD_REQUEST)

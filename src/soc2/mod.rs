@@ -1,26 +1,74 @@
+use std::fmt::Display;
+
 use axum::response::IntoResponse;
 use crate::*;
 
 pub mod models;
 pub mod service;
 
-#[derive(thiserror::Error, Debug)]
-pub enum SocError {
-    #[error(transparent)]
-    SqlxError(#[from] sqlx::Error),
-    #[error(transparent)]
-    UrlError(#[from] url::ParseError),
+type Result<T> = std::result::Result<T, APIError>;
+
+macro_rules! HTTPError {
+    { backend $name:ident $($variant:ident = $from:path),* } => {
+        #[derive(thiserror::Error, Debug)]
+        pub enum $name {
+            $(
+                #[error(transparent)]
+                $variant(#[from] $from),
+            )*
+        }
+    };
+    { frontend $name:ident $($variant:ident),* } => {
+        #[derive(Debug)]
+        pub enum $name {
+            $(
+                $variant($variant),
+            )*
+        }
+
+    };
 }
 
-type Result<T> = std::result::Result<T, SocError>;
+HTTPError!{ backend BackError
+    SQLX = sqlx::Error,
+    URL = url::ParseError
+}
 
-impl ApiError for SocError { }
-impl FrontError for SocError {}
-impl IntoResponse for SocError {
-    fn into_response(self) -> axum::response::Response {
-        match &self {
-            Self::SqlxError(_)=>self.build_error(),
-            Self::UrlError(_)=>self.build_error(),
+HTTPError!( frontend FrontError 
+  ExampleError  
+);
+
+
+#[derive(Debug)]
+pub struct ExampleError {
+    info: i64,
+}
+
+pub enum SocError {
+    BackError(BackError),
+    FrontError(FrontError),
+}
+
+impl APIError for BackError { }
+impl Display for FrontError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FrontError::ExampleError( ExampleError{info}  ) => {
+                write!(f, "Example error :(")?;
+                write!(f, "extra info: {info}")
+            }
         }
     }
 }
+
+impl std::error::Error for FrontError { }
+impl HTMLError for FrontError {}
+impl IntoResponse for SocError {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::BackError(e)=>e.build_error(),
+            Self::FrontError(e)=>e.render_error(),
+        }
+    }
+}
+
