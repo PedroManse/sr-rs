@@ -127,3 +127,25 @@ pub async fn nav(
         }
     }
 }
+
+#[macro_export]
+macro_rules! HTTPError {
+    { backend $name:ident $($variant:ident = $from:path),* } => {
+        #[derive(thiserror::Error, Debug)]
+        pub enum $name {
+            $(
+                #[error(transparent)]
+                $variant(#[from] $from),
+            )*
+        }
+    };
+    { frontend $name:ident $($variant:ident),* } => {
+        #[derive(Debug)]
+        pub enum $name {
+            $(
+                $variant($variant),
+            )*
+        }
+
+    };
+}

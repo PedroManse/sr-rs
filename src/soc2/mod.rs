@@ -1,37 +1,35 @@
-use std::fmt::Display;
-
-use axum::response::IntoResponse;
 use crate::*;
+use std::fmt::{Display, self};
+use axum::response::IntoResponse;
+
+use self::models::{ItemRef, ItemType};
 
 pub mod models;
+pub mod items; // basic Item CRUD
 pub mod service;
 
-type Result<T> = std::result::Result<T, APIError>;
+// export routes and navbar
+pub struct SocModule;
 
-macro_rules! HTTPError {
-    { backend $name:ident $($variant:ident = $from:path),* } => {
-        #[derive(thiserror::Error, Debug)]
-        pub enum $name {
-            $(
-                #[error(transparent)]
-                $variant(#[from] $from),
-            )*
-        }
-    };
-    { frontend $name:ident $($variant:ident),* } => {
-        #[derive(Debug)]
-        pub enum $name {
-            $(
-                $variant($variant),
-            )*
-        }
+type Result<T> = std::result::Result<T, BackError>;
 
-    };
+#[derive(thiserror::Error, Debug)]
+pub struct WrongItemType {
+    got: ItemType,
+    expected: ItemType,
+    item_id: ItemRef,
+}
+
+impl Display for WrongItemType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "WrongItemType: expected {:?}, but got {:?} for item #{}", self.expected, self.got, self.item_id.0)
+    }
 }
 
 HTTPError!{ backend BackError
     SQLX = sqlx::Error,
-    URL = url::ParseError
+    URL = url::ParseError,
+    ItemType = WrongItemType
 }
 
 HTTPError!( frontend FrontError 

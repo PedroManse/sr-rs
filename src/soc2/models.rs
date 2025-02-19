@@ -2,10 +2,29 @@ use super::*;
 use sqlx::PgPool;
 use url::Url;
 
-pub struct UserRef(pub i64);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ItemRef(pub i64);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UserRef(pub i64);
 
-pub enum Item {
+#[derive(sqlx::FromRow)]
+pub struct User {
+    id: UserRef,
+    manager_id: accounts::AccountRef,
+    username: String,
+}
+
+#[derive(sqlx::Type, Debug, PartialEq, Eq, Clone)]
+#[sqlx(rename_all = "lowercase", type_name = "item_type")]
+pub enum ItemType {
+    Post,
+    Comment,
+    Gallery,
+    Article,
+    Repost,
+}
+
+pub enum AnyItem {
     Post(Post),
     Comment(Comment),
     GalleryPost(GalleryPost),
@@ -16,27 +35,30 @@ pub enum Item {
 macro_rules! defItem {
     ($name:ident { $( $t:tt )* } )=> {
         pub struct $name {
-            pub posted: chrono::DateTime<chrono::Utc>,
+            pub posted_time: chrono::DateTime<chrono::Utc>,
             pub poster: UserRef,
             pub id: ItemRef,
             $( $t )*
         }
+        impl $name {
+            pub async fn get_poster(&self, pool: &PgPool) -> Result<User> {
+                let u = sqlx::query!("SELECT manager_id, username FROM soc.user WHERE id=$1", self.poster.0).fetch_one(pool).await?;
+                Ok(User {
+                    id: self.poster.clone(),
+                    username: u.username,
+                    manager_id: accounts::AccountRef(u.manager_id)
+                })
+            }
+        }
     };
 }
 
-pub struct ItemCommonInfo{
-    pub posted: chrono::DateTime<chrono::Utc>,
+#[derive(sqlx::FromRow)]
+pub struct ItemCommonInfo {
+    pub posted_time: chrono::DateTime<chrono::Utc>,
     pub poster: UserRef,
     pub id: ItemRef,
-}
-
-impl Item {
-    async fn new_item(poster: UserRef) -> Result<ItemCommonInfo>
-    pub(super) async fn new_post(poster: UserRef, text: &str) -> Result<Post> { todo!() }
-    pub(super) async fn new_comment(poster: UserRef, parent: ItemRef, text: &str) -> Result<Post> { todo!() }
-    pub(super) async fn new_gallery(poster: UserRef, text: &str, photos: Vec<Url>) -> Result<Post> { todo!() }
-    pub(super) async fn new_article(poster: UserRef, text: &str, article: Url) -> Result<Post> { todo!() }
-    pub(super) async fn new_repost(poster: UserRef, text: &str, parent: ItemRef) -> Result<Post> { todo!() }
+    pub item_type: ItemType,
 }
 
 defItem!(Post {
@@ -48,30 +70,14 @@ defItem!(Comment {
     pub text: String,
 });
 
-impl Comment {
-    pub async fn get_parent(id: ItemRef, pool: &PgPool) -> Result<Item> {
-        todo!()
-    }
-}
-
-// id -> gallery's photos
 defItem!(GalleryPost {
     pub title: String,
+    pub photos: Vec<Url>,
 });
-
-struct GalleryPhoto {
-    url: Url,
-}
-
-impl Comment {
-    pub async fn get_photos(id: ItemRef, pool: &PgPool) -> Result<Vec<GalleryPhoto>> {
-        todo!()
-    }
-}
 
 defItem!(ArticlePost {
     pub title: String,
-    pub article: String, // -> URL
+    pub article: Url,
 });
 
 defItem!(Repost {
@@ -79,8 +85,4 @@ defItem!(Repost {
     pub original: ItemRef,
 });
 
-impl Repost {
-    pub async fn get_original(id: ItemRef, pool: &PgPool) -> Result<Item> {
-        todo!()
-    }
-}
+
