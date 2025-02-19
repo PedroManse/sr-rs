@@ -5,6 +5,8 @@ pub struct FormAccount {
     pub password: String,
 }
 
+pub struct AccountRef(pub uuid::Uuid);
+
 #[derive(serde::Serialize, serde::Deserialize, Hash, Clone, Debug)]
 pub struct Account {
     pub name: String,
