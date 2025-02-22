@@ -26,21 +26,14 @@ impl Display for WrongItemType {
     }
 }
 
-HTTPError!{ backend BackError
+HTTPError!( backend BackError {
+
     SQLX = sqlx::Error,
     URL = url::ParseError,
     ItemType = WrongItemType
-}
+} );
 
-HTTPError!( frontend FrontError 
-  ExampleError  
-);
-
-
-#[derive(Debug)]
-pub struct ExampleError {
-    info: i64,
-}
+HTTPError!( frontend FrontError  { } );
 
 pub enum SocError {
     BackError(BackError),
@@ -50,12 +43,7 @@ pub enum SocError {
 impl APIError for BackError { }
 impl Display for FrontError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FrontError::ExampleError( ExampleError{info}  ) => {
-                write!(f, "Example error :(")?;
-                write!(f, "extra info: {info}")
-            }
-        }
+        write!(f, "")
     }
 }
 

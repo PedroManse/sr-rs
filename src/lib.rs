@@ -4,6 +4,7 @@ pub mod jwt;
 pub mod meet;
 pub mod accounts;
 pub mod soc2;
+pub mod wishes;
 //TODO better HTMLError trait
 
 use axum::body::Body;
@@ -130,7 +131,7 @@ pub async fn nav(
 
 #[macro_export]
 macro_rules! HTTPError {
-    { backend $name:ident $($variant:ident = $from:path),* } => {
+    ( backend $name:ident { $($variant:ident = $from:path),* } ) => {
         #[derive(thiserror::Error, Debug)]
         pub enum $name {
             $(
@@ -139,7 +140,7 @@ macro_rules! HTTPError {
             )*
         }
     };
-    { frontend $name:ident $($variant:ident),* } => {
+    ( frontend $name:ident { $($variant:ident),* } ) => {
         #[derive(Debug)]
         pub enum $name {
             $(
