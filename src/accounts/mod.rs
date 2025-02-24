@@ -8,11 +8,11 @@ use axum::Router;
 pub use models::*;
 pub use service::*;
 
-pub struct AccountModule{}
+pub struct AccountModule;
 
 impl Routes for AccountModule{
     fn service() -> Router<PgPool> {
-    use service::*;
+        use service::*;
         Router::new()
             .route("/register", post(register_post))
             .route("/register", get(register_get))

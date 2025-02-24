@@ -1,27 +1,34 @@
 use axum::response::IntoResponse;
+use axum::routing::{get, post};
 
 pub mod models;
+pub mod services;
+
 use super::*;
+pub struct WishesModule;
 
-HTTPError!( backend BackError {
-    SQLX = sqlx::Error
-} );
-
-HTTPError!( frontend FrontError {} );
-
-pub enum WishError {
-    BackError(BackError),
-    FrontError(FrontError),
+impl Routes for WishesModule {
+    fn service() -> Router<PgPool> {
+        use services::*;
+        Router::new()
+            .route("/list/:list_id", get(get_list))
+    }
 }
 
-impl APIError for BackError { }
-//impl HTMLError for FrontError {}
+type Result<T> = std::result::Result<T, BackError>;
 
-impl IntoResponse for WishError {
+HTTPError!( backend BackError {
+    SQLX = sqlx::Error,
+    URL = url::ParseError
+} );
+
+
+
+impl APIError for BackError { }
+
+impl IntoResponse for BackError {
     fn into_response(self) -> axum::response::Response {
-        match self {
-            Self::BackError(x)=>x.build_error()
-        }
+        self.build_error()
     }
 }
 
