@@ -15,6 +15,16 @@ pub struct List {
 }
 
 impl List {
+    pub async fn get_all(pool: &PgPool, owner_id: Uuid) -> Result<Vec<List>> {
+        let list_ids = sqlx::query!(r#"
+SELECT id FROM wishes.list WHERE owner_id=$1
+            "#, owner_id).fetch_all(pool).await?;
+        let mut lists = vec![];
+        for list in list_ids {
+            lists.push(List::get(pool, list.id).await?);
+        }
+        Ok(lists)
+    }
     pub async fn get(pool: &PgPool, id: i32) -> Result<List> {
         let ls = sqlx::query!(r#"
 SELECT 
@@ -26,6 +36,7 @@ WHERE
 "#, id).fetch_one(pool).await?;
         let fulfillments = sqlx::query!(r#"
 SELECT
+    id,
     wish_id,
     wish_fullfiller as "account",
     person
@@ -38,6 +49,7 @@ WHERE
         for f in fulfillments {
             let vc = fulfillments_map.entry(f.wish_id).or_default();
             vc.push(Fulfillment{
+                id: f.id,
                 person: f.person,
                 account: f.account,
             });
@@ -50,6 +62,7 @@ SELECT
 	link,
 	text,
 	total_amount,
+  price,
 	disabled
 
 FROM wishes.wish
@@ -63,7 +76,8 @@ WHERE list_id=$1
                 text: w.text,
                 total_amount: w.total_amount,
                 fulfillments: fulfillments_map.remove(&w.id).unwrap_or_default(),
-                disabled: w.disabled
+                disabled: w.disabled,
+                price: w.price,
             })
         }).collect::<Result<_>>()?;
         Ok(List {
@@ -85,10 +99,12 @@ struct Wish {
     total_amount: i32,
     fulfillments: Vec<Fulfillment>,
     disabled: bool,
+    price: Option<String>,
 }
 
 #[derive(Serialize)]
 struct Fulfillment {
+    id: i32,
     person: Option<String>,
     account: Option<Uuid>,
 }

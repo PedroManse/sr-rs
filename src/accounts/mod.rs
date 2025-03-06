@@ -10,7 +10,7 @@ pub use service::*;
 
 pub struct AccountModule;
 
-impl Routes for AccountModule{
+impl Module for AccountModule{
     fn service() -> Router<PgPool> {
         use service::*;
         Router::new()
@@ -19,9 +19,6 @@ impl Routes for AccountModule{
             .route("/login", get(login_get))
             .route("/login", post(login_post))
     }
-}
-
-impl HTMLNav for AccountModule {
     async fn render(url: &str, cookies: &Cookies, pool: &PgPool) -> Markup {
         match accounts::get_acc(cookies, pool).await {
             Ok(acc) => html! {

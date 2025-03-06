@@ -26,15 +26,26 @@ pub enum Error {
     FailedDecryption,
 }
 
-pub fn service() -> Router<PgPool> {
-    Router::new()
-        .route("/", get(index))
-        .route("/random", post(send_random))
-        .route("/random", get(query_random))
-        .route("/named", post(send_named))
-        .route("/named", get(query_named))
-        .route("/private", post(send_private))
-        .route("/private", get(query_private))
+pub struct EcbModule;
+impl Module for EcbModule {
+    fn service() -> Router<PgPool> {
+        Router::new()
+            .route("/", get(index))
+            .route("/random", post(send_random))
+            .route("/random", get(query_random))
+            .route("/named", post(send_named))
+            .route("/named", get(query_named))
+            .route("/private", post(send_private))
+            .route("/private", get(query_private))
+    }
+    async fn render(url: &str, _: &Cookies, _: &PgPool) -> Markup {
+        let selected = url.starts_with("/ecb");
+        html! {
+            span {
+                a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
+            }
+        }
+    }
 }
 
 pub fn get_nav(url: &str) -> Markup {
@@ -42,18 +53,6 @@ pub fn get_nav(url: &str) -> Markup {
     html! {
         span {
             a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
-        }
-    }
-}
-
-pub struct Nav {}
-impl HTMLNav for Nav {
-    async fn render(url: &str, _: &Cookies, _: &PgPool) -> Markup {
-        let selected = url.starts_with("/ecb");
-        html! {
-            span {
-                a."current-page"[selected] href="/ecb" {"EasyClipBoard"}
-            }
         }
     }
 }

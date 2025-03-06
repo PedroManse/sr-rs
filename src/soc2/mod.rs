@@ -11,6 +11,24 @@ pub mod service;
 // export routes and navbar
 pub struct SocModule;
 
+impl Module for SocModule {
+    fn service() -> Router<PgPool> {
+        Router::new()
+    }
+    async fn render(
+            url: &str,
+            cookies: &Cookies,
+            pool: &PgPool,
+        ) -> Markup {
+        let selected = url.starts_with("/soc2");
+        html! {
+            span {
+                a."current-page"[selected] href="/soc2" {"Soc2"}
+            }
+        }
+    }
+}
+
 type Result<T> = std::result::Result<T, BackError>;
 
 #[derive(thiserror::Error, Debug)]

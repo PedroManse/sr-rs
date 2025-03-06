@@ -11,8 +11,10 @@ async fn main() -> Result<(), RootError> {
     let app = Router::new()
         .route("/", get(index))
         .nest("/accounts", accounts::AccountModule::service())
-        .nest("/ecb", ecb::service())
+        .nest("/ecb", ecb::EcbModule::service())
         .nest("/meet", meet::service())
+        .nest("/soc2", soc2::SocModule::service())
+        .nest("/wish", wishes::WishesModule::service())
         .layer(CookieManagerLayer::new())
         .nest_service("/files", ServeDir::new("files"))
         .with_state(pool);

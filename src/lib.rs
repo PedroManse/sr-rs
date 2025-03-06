@@ -16,11 +16,8 @@ pub use uuid::Uuid;
 const COOKIE_UUID_NAME: &str = "SRRS_USER_COOKIE";
 const ARGON_SALT: &str = env!("ARGON_SALT");
 
-pub trait Routes {
+pub trait Module {
     fn service() -> Router<PgPool>;
-}
-
-pub trait HTMLNav {
     fn render(
         url: &str,
         cookies: &Cookies,
@@ -120,11 +117,10 @@ pub async fn nav(
             (simple_nav_item(
                 url, "/", "home",
             ));
-            //(simple_nav_item(
-            //    url, "/meet/user", "Meet",
-            //));
-            (ecb::Nav::render(url, cookies, pool).await)
-            (accounts::AccountModule::render(url, cookies, pool).await)
+            (ecb::EcbModule::render(url, cookies, pool).await);
+            (accounts::AccountModule::render(url, cookies, pool).await);
+            (wishes::WishesModule::render(url, cookies, pool).await);
+            (soc2::SocModule::render(url, cookies, pool).await);
         }
     }
 }

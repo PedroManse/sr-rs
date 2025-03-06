@@ -14,6 +14,7 @@ CREATE TABLE wishes.wish (
 	id SERIAL NOT NULL PRIMARY KEY,
 	list_id SERIAL NOT NULL REFERENCES wishes.list,
 
+	price TEXT,
 	placement INT NOT NULL,
 	link TEXT NOT NULL,
 	text TEXT NOT NULL,
@@ -23,6 +24,7 @@ CREATE TABLE wishes.wish (
 );
 
 CREATE TABLE wishes.fulfillments (
+	id SERIAL NOT NULL PRIMARY KEY,
 	list_id SERIAL NOT NULL REFERENCES wishes.list ON DELETE CASCADE,
 	wish_id SERIAL NOT NULL REFERENCES wishes.wish ON DELETE RESTRICT,
 
