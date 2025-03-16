@@ -15,6 +15,17 @@ pub struct List {
 }
 
 impl List {
+    pub async fn new(pool: &PgPool, owner_id: Uuid, name: String) -> Result<List> {
+        let l = sqlx::query!(r#"
+INSERT INTO wishes.list
+    (owner_id, list_name)
+VALUES
+    ($1, $2)
+RETURNING
+    id, show_fullfillers
+            "#, owner_id, name).fetch_one(pool).await?;
+        Ok(List { id: l.id, owner: owner_id, list_name: name, wishes: vec![], show_fullfillers: l.show_fullfillers })
+    }
     pub async fn get_all(pool: &PgPool, owner_id: Uuid) -> Result<Vec<List>> {
         let list_ids = sqlx::query!(r#"
 SELECT id FROM wishes.list WHERE owner_id=$1

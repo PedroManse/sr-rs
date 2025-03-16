@@ -1,5 +1,5 @@
 use axum::extract::{Path, State};
-use axum::{debug_handler, Json};
+use axum::{Json};
 
 use super::*;
 use models::*;
@@ -19,9 +19,13 @@ pub async fn list_lists(
 }
 
 pub async fn make_list(
-    Path(id): Path<i32>,
     State(pool): State<PgPool>,
-) { }
+    cookies: Cookies
+) -> Result<Json<List>> {
+    todo!("get body");
+    let acc = accounts::get_id(&cookies)?;
+    List::new(&pool, acc, "New list".to_owned()).await.map(Json)
+}
 
 pub async fn delete_list(
     Path(id): Path<i32>,

@@ -41,7 +41,8 @@ type Result<T> = std::result::Result<T, BackError>;
 
 HTTPError!( backend BackError {
     SQLX = sqlx::Error,
-    URL = url::ParseError
+    URL = url::ParseError,
+    ACC = accounts::FError
 } );
 
 impl APIError for BackError { }
